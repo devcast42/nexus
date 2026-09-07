@@ -1,10 +1,11 @@
 "use client"
-import { useMemo,useState,useTransition } from "react"
+import { useEffect,useMemo,useRef,useState,useTransition } from "react"
 import { AnimatePresence,motion } from "motion/react"
-import { Activity,AlertTriangle,ArrowLeftRight,BrainCircuit,Check,CircleDot,Paperclip,ScanLine,Send,ShieldCheck,Sparkles } from "lucide-react"
+import { Activity,AlertTriangle,ArrowLeftRight,BrainCircuit,Check,CircleDot,ScanLine,Send,ShieldCheck,Sparkles } from "lucide-react"
 import { applyDesignProfile,saveAiAssessment,scanOrganization } from "@/app/actions"
 import type { AiSystemView,DesignFactorView } from "@/lib/types"
 import { comparePriorities,computePriorities,neutralInputs } from "@/lib/design-engine"
+import { CopilotAnswer } from "./copilot-answer"
 import { useGovernance } from "./governance-provider"
 import { PriorityBars,Sparkline } from "./dashboard-charts"
 import { Avatar,AvatarFallback } from "@/components/ui/avatar"
@@ -45,8 +46,36 @@ return <div className="flex flex-col gap-5">
 <p className="text-xs leading-relaxed text-muted-foreground">Los pesos que relacionan cada factor con los 40 objetivos son una calibración propia de este proyecto, no las tablas licenciadas del COBIT 2019 Design Toolkit de ISACA. La estructura del cálculo —suma ponderada y normalización a importancia relativa— sí sigue el modelo de COBIT, y los pesos viven en la tabla <code className="font-mono">design_factor_weights</code> para poder sustituirlos por los oficiales sin tocar el motor.</p></div>
 </div></div>}
 
-const suggested=["¿Por qué APO12 está en rojo?","Genera un resumen ejecutivo del mes","¿Qué riesgos de IA tenemos sin controlar?"]
-export function CopilotView(){const [messages,setMessages]=useState([{role:"ai",text:"Buenos días. He consolidado 248 señales de gobierno. ¿Qué deseas investigar?"}]);const [input,setInput]=useState("");const [thinking,setThinking]=useState(false);function send(text=input){if(!text.trim()||thinking)return;setMessages(m=>[...m,{role:"user",text}]);setInput("");setThinking(true);setTimeout(()=>{setMessages(m=>[...m,{role:"ai",text:text.includes("APO12")?"APO12 está en rojo porque el riesgo residual de Atlas superó el umbral 4.2 y faltan dos evidencias de mitigación. Recomiendo convocar al propietario del riesgo.":"El sistema mantiene una salud global de 79%. La principal brecha está en APO, mientras EDM y DSS evolucionan favorablemente. Preparé la evidencia para revisión."}]);setThinking(false)},900)}return <Card className="mx-auto flex min-h-[calc(100vh-10rem)] max-w-5xl flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><BrainCircuit className="text-primary"/>Copiloto Nexus</CardTitle><CardDescription>Consulta el estado de gobierno con trazabilidad a evidencia</CardDescription><div className="flex flex-wrap gap-2 pt-3">{suggested.map(q=><Button key={q} size="sm" variant="outline" onClick={()=>send(q)}>{q}</Button>)}</div></CardHeader><CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto py-6">{messages.map((m,i)=><div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[80%] rounded-xl border px-4 py-3 text-sm leading-relaxed ${m.role==="user"?"bg-primary text-primary-foreground":"bg-muted/60"}`}>{m.text}{m.role==="ai"&&i>0&&<div className="mt-3 rounded-lg border bg-background/60 p-3"><div className="flex items-center justify-between"><span className="font-mono text-primary">APO12</span><Badge variant="destructive">Crítico</Badge></div><p className="mt-2 text-xs text-muted-foreground">Riesgo gestionado · Health 54/100</p></div>}</div></div>)}{thinking&&<div className="flex gap-1 text-primary"><span className="animate-bounce">●</span><span className="animate-bounce [animation-delay:120ms]">●</span><span className="animate-bounce [animation-delay:240ms]">●</span></div>}</CardContent><div className="flex gap-2 border-t p-4"><Button size="icon" variant="ghost" aria-label="Adjuntar política"><Paperclip/></Button><Input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.nativeEvent.isComposing&&e.keyCode!==229)send()}} placeholder="Pregunta sobre riesgos, controles o evidencia..."/><Button size="icon" aria-label="Enviar" onClick={()=>send()}><Send/></Button></div></Card>}
+const suggested=["¿Por qué APO12 está en rojo?","¿Qué decisiones esperan mi firma?","¿Qué sistemas de IA no tienen controles aceptados?"]
+type ChatMessage = { role:"user"|"assistant"; text:string }
+const greeting:ChatMessage = {role:"assistant",text:"Puedo responder sobre el estado de gobierno registrado: objetivos COBIT, negociaciones entre agentes, decisiones firmadas y el registro de sistemas de IA. ¿Qué quieres revisar?"}
+
+export function CopilotView(){const [messages,setMessages]=useState<ChatMessage[]>([greeting]);const [input,setInput]=useState("");const [streaming,setStreaming]=useState(false);const viewport=useRef<HTMLDivElement>(null);
+useEffect(()=>{viewport.current?.scrollTo({top:viewport.current.scrollHeight})},[messages]);
+async function send(text=input){
+ const question=text.trim()
+ if(!question||streaming)return
+ const history=[...messages,{role:"user" as const,text:question}]
+ setMessages([...history,{role:"assistant",text:""}]);setInput("");setStreaming(true)
+ try{
+  const response=await fetch("/api/copilot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:history.map(m=>({role:m.role,content:m.text}))})})
+  if(!response.ok||!response.body)throw new Error((await response.text())||`El copiloto respondió ${response.status}.`)
+  const reader=response.body.getReader();const decoder=new TextDecoder()
+  for(;;){
+   const {done,value}=await reader.read()
+   if(done)break
+   const chunk=decoder.decode(value,{stream:true})
+   setMessages(m=>m.map((entry,i)=>i===m.length-1?{...entry,text:entry.text+chunk}:entry))
+  }
+ }catch(error){
+  const detail=error instanceof Error?error.message:"No se pudo consultar al copiloto."
+  setMessages(m=>m.map((entry,i)=>i===m.length-1?{...entry,text:detail}:entry))
+ }finally{setStreaming(false)}
+}
+const waiting=streaming&&messages[messages.length-1]?.text===""
+return <Card className="mx-auto flex min-h-[calc(100vh-10rem)] max-w-5xl flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><BrainCircuit className="text-primary"/>Copiloto Nexus</CardTitle><CardDescription>Responde solo con el estado de gobierno registrado en la base de datos</CardDescription><div className="flex flex-wrap gap-2 pt-3">{suggested.map(q=><Button key={q} size="sm" variant="outline" disabled={streaming} onClick={()=>send(q)}>{q}</Button>)}</div></CardHeader>
+<CardContent ref={viewport} className="flex flex-1 flex-col gap-4 overflow-y-auto py-6">{messages.map((m,i)=><div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[80%] rounded-xl border px-4 py-3 text-sm leading-relaxed ${m.role==="user"?"whitespace-pre-wrap bg-primary text-primary-foreground":"bg-muted/60"}`}>{m.role==="user"?m.text:<CopilotAnswer text={m.text}/>}</div></div>)}{waiting&&<div className="flex gap-1 text-primary"><span className="animate-bounce">●</span><span className="animate-bounce [animation-delay:120ms]">●</span><span className="animate-bounce [animation-delay:240ms]">●</span></div>}</CardContent>
+<div className="flex gap-2 border-t p-4"><Input value={input} onChange={e=>setInput(e.target.value)} disabled={streaming} onKeyDown={e=>{if(e.key==="Enter"&&!e.nativeEvent.isComposing&&e.keyCode!==229)send()}} placeholder="Pregunta sobre objetivos, negociaciones, decisiones o sistemas de IA..."/><Button size="icon" aria-label="Enviar" disabled={streaming||input.trim().length===0} onClick={()=>send()}><Send/></Button></div></Card>}
 
 export function AIGovernanceView(){const {aiSystems}=useGovernance();const [scanning,startScan]=useTransition();const [saving,startSave]=useTransition();const [selectedId,setSelectedId]=useState<number|null>(null);const [accepted,setAccepted]=useState<string[]>([]);const selected=aiSystems.find(s=>s.id===selectedId)??null;
 function openSystem(system:AiSystemView){setSelectedId(system.id);setAccepted(system.acceptedControls)}

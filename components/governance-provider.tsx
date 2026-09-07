@@ -39,5 +39,3 @@ export function GovernanceProvider({data,children}:{data:GovernanceData;children
 
  return <GovernanceContext value={value}>{children}</GovernanceContext>
 }
-
-export function clampScore(value:number){return Math.max(0,Math.min(100,Math.round(value)))}
