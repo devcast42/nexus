@@ -1,5 +1,5 @@
 import { asc,desc } from "drizzle-orm"
-import type { AgentView,AiSystemView,DecisionView,DomainCode,DomainView,GovernanceData,NegotiationView,NoticeView,ObjectiveView } from "../types"
+import type { AgentView,AiSystemView,DecisionView,DesignFactorView,DesignProfileView,DomainCode,DomainView,GovernanceData,NegotiationView,NoticeView,ObjectiveView } from "../types"
 import { getDb } from "./index"
 import * as schema from "./schema"
 
@@ -17,7 +17,7 @@ function clockTime(date:Date){return date.toLocaleTimeString("es-PE",{hour:"2-di
 
 export async function loadGovernanceData():Promise<GovernanceData>{
  const db=getDb()
- const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows]=await Promise.all([
+ const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows,factorRows,valueRows,weightRows,profileRows]=await Promise.all([
   db.select().from(schema.domains).orderBy(asc(schema.domains.code)),
   db.select().from(schema.objectives).orderBy(asc(schema.objectives.code)),
   db.select().from(schema.agents).orderBy(asc(schema.agents.code)),
@@ -25,6 +25,10 @@ export async function loadGovernanceData():Promise<GovernanceData>{
   db.select().from(schema.notices).orderBy(desc(schema.notices.raisedAt)),
   db.select().from(schema.decisions).orderBy(desc(schema.decisions.decidedAt)),
   db.select().from(schema.aiSystems).orderBy(asc(schema.aiSystems.id)),
+  db.select().from(schema.designFactors).orderBy(asc(schema.designFactors.displayOrder)),
+  db.select().from(schema.designFactorValues).orderBy(asc(schema.designFactorValues.displayOrder)),
+  db.select().from(schema.designFactorWeights),
+  db.select().from(schema.designProfiles).orderBy(desc(schema.designProfiles.appliedAt)).limit(1),
  ])
 
  const order:DomainCode[]=["EDM","APO","BAI","DSS","MEA"]
@@ -49,5 +53,12 @@ export async function loadGovernanceData():Promise<GovernanceData>{
  const decisions:DecisionView[]=decisionRows.map(r=>({negotiationId:r.negotiationId,objective:r.objectiveCode,domain:r.domainCode as DomainCode,agent:r.agent,verdict:r.verdict,label:r.label,impact:r.impact,delta:r.delta,decidedBy:r.decidedBy,at:clockTime(r.decidedAt)}))
  const aiSystems:AiSystemView[]=aiRows.map(s=>({id:s.id,name:s.name,area:s.area,description:s.description,risk:s.risk,status:s.status,controls:s.controls,acceptedControls:s.acceptedControls,assessed:s.assessedAt!==null}))
 
- return {domains,objectives,agents,negotiations,notices,decisions,aiSystems}
+ const weightsByValue=new Map<string,Record<string,number>>()
+ for(const w of weightRows){const bucket=weightsByValue.get(w.valueId)??{};bucket[w.objectiveCode]=w.weight;weightsByValue.set(w.valueId,bucket)}
+ const designFactors:DesignFactorView[]=factorRows.map(f=>({code:f.code,name:f.name,description:f.description,input:f.input,
+  values:valueRows.filter(v=>v.factorCode===f.code).map(v=>({id:v.id,key:v.valueKey,label:v.label,weights:weightsByValue.get(v.id)??{}}))}))
+ const profile=profileRows[0]
+ const activeProfile:DesignProfileView|null=profile?{id:profile.id,name:profile.name,inputs:profile.inputs,appliedBy:profile.appliedBy,appliedAt:`${profile.appliedAt.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(profile.appliedAt)}`}:null
+
+ return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile}
 }

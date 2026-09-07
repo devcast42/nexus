@@ -1,4 +1,4 @@
-import { integer,jsonb,pgTable,real,serial,text,timestamp,varchar } from "drizzle-orm/pg-core"
+import { integer,jsonb,pgTable,primaryKey,real,serial,text,timestamp,varchar } from "drizzle-orm/pg-core"
 
 export const domains = pgTable("domains",{
  code:varchar("code",{length:3}).primaryKey(),
@@ -88,4 +88,38 @@ export const aiSystems = pgTable("ai_systems",{
  acceptedControls:jsonb("accepted_controls").$type<string[]>().notNull().default([]),
  discoveredAt:timestamp("discovered_at",{withTimezone:true}).notNull().defaultNow(),
  assessedAt:timestamp("assessed_at",{withTimezone:true}),
+})
+
+// Factores de diseño de COBIT 2019 y su influencia sobre los objetivos.
+// Los pesos viven en la base para poder sustituirlos por los del Design Toolkit
+// de ISACA sin tocar el motor de cálculo.
+export const designFactors = pgTable("design_factors",{
+ code:varchar("code",{length:6}).primaryKey(),
+ name:text("name").notNull(),
+ description:text("description").notNull(),
+ input:text("input").$type<"rating"|"toggle"|"choice">().notNull(),
+ displayOrder:integer("display_order").notNull(),
+})
+
+export const designFactorValues = pgTable("design_factor_values",{
+ id:varchar("id",{length:24}).primaryKey(),
+ factorCode:varchar("factor_code",{length:6}).notNull().references(()=>designFactors.code),
+ valueKey:varchar("value_key",{length:24}).notNull(),
+ label:text("label").notNull(),
+ displayOrder:integer("display_order").notNull(),
+})
+
+export const designFactorWeights = pgTable("design_factor_weights",{
+ valueId:varchar("value_id",{length:24}).notNull().references(()=>designFactorValues.id),
+ objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
+ weight:integer("weight").notNull(),
+},t=>[primaryKey({columns:[t.valueId,t.objectiveCode]})])
+
+// El diseño de gobierno que el comité aplicó: el mandato bajo el que operan los agentes.
+export const designProfiles = pgTable("design_profiles",{
+ id:serial("id").primaryKey(),
+ name:text("name").notNull(),
+ inputs:jsonb("inputs").$type<Record<string,number>>().notNull(),
+ appliedBy:text("applied_by").notNull().default("Lina Castillo"),
+ appliedAt:timestamp("applied_at",{withTimezone:true}).notNull().defaultNow(),
 })

@@ -47,3 +47,17 @@ export async function saveAiAssessment(systemId:number,accepted:string[]){
  await db.update(schema.aiSystems).set({acceptedControls:valid,status,assessedAt:new Date()}).where(eq(schema.aiSystems.id,systemId))
  revalidatePath("/")
 }
+
+// "Aplicar este diseño" deja de ser decorativo: fija el mandato bajo el que
+// los agentes negocian y priorizan.
+export async function applyDesignProfile(name:string,inputs:Record<string,number>){
+ if(typeof name!=="string"||name.trim().length===0)throw new Error("El diseño necesita un nombre")
+ if(inputs===null||typeof inputs!=="object")throw new Error("Configuración inválida")
+ const db=getDb()
+ const valueRows=await db.select({id:schema.designFactorValues.id}).from(schema.designFactorValues)
+ const valid=new Set(valueRows.map(v=>v.id))
+ const clean=Object.fromEntries(Object.entries(inputs).filter(([id,value])=>valid.has(id)&&Number.isFinite(value)).map(([id,value])=>[id,Number(value)]))
+ if(Object.keys(clean).length===0)throw new Error("La configuración no contiene ningún factor de diseño conocido")
+ await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean})
+ revalidatePath("/")
+}

@@ -5,6 +5,7 @@ config({ path: ".env" })
 import { isNull,sql } from "drizzle-orm"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
+import { defaultDesignInputs,designFactors as seedDesignFactors } from "../cobit-design"
 import { agents as seedAgents,aiSystems as seedAiSystems,domains as seedDomains,negotiations as seedNegotiations,notices as seedNotices,objectives as seedObjectives } from "../mock-data"
 import * as schema from "./schema"
 
@@ -42,6 +43,18 @@ async function main(){
  await db.insert(schema.notices).values(seedNotices.map(n=>({id:n.id,objectiveCode:n.objective,domainCode:n.domain,severity:n.severity,agent:n.agent,fact:n.fact,raisedAt:raisedAt(n.time)})))
   .onConflictDoUpdate({target:schema.notices.id,set:{fact:sqlExcluded("fact"),agent:sqlExcluded("agent")}})
  console.log(`✓ ${seedNotices.length} avisos informativos`)
+
+ await db.insert(schema.designFactors).values(seedDesignFactors.map((f,i)=>({code:f.code,name:f.name,description:f.description,input:f.input,displayOrder:i})))
+  .onConflictDoUpdate({target:schema.designFactors.code,set:{name:sqlExcluded("name"),description:sqlExcluded("description"),input:sqlExcluded("input"),displayOrder:sqlExcluded("display_order")}})
+ const values=seedDesignFactors.flatMap(f=>f.values.map((v,i)=>({id:`${f.code}.${v.key}`,factorCode:f.code,valueKey:v.key,label:v.label,displayOrder:i})))
+ await db.insert(schema.designFactorValues).values(values)
+  .onConflictDoUpdate({target:schema.designFactorValues.id,set:{label:sqlExcluded("label"),displayOrder:sqlExcluded("display_order")}})
+ const weights=seedDesignFactors.flatMap(f=>f.values.flatMap(v=>Object.entries(v.weights).map(([objectiveCode,weight])=>({valueId:`${f.code}.${v.key}`,objectiveCode,weight}))))
+ await db.insert(schema.designFactorWeights).values(weights)
+  .onConflictDoUpdate({target:[schema.designFactorWeights.valueId,schema.designFactorWeights.objectiveCode],set:{weight:sqlExcluded("weight")}})
+ const [existingProfile]=await db.select({id:schema.designProfiles.id}).from(schema.designProfiles).limit(1)
+ if(!existingProfile){await db.insert(schema.designProfiles).values({name:"Diseño base",inputs:defaultDesignInputs});console.log("✓ mandato inicial 'Diseño base' aplicado")}
+ console.log(`✓ ${seedDesignFactors.length} factores de diseño · ${values.length} valores · ${weights.length} pesos sobre objetivos`)
 
  // Un sistema "Aprobado" solo es coherente si el comité aceptó sus controles en algún momento
  const assessedAt=new Date(Date.now()-7*24*60*60_000)

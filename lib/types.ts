@@ -20,5 +20,8 @@ export type NegotiationView = {
 }
 export type NoticeView = { id:number; objective:string; domain:DomainCode; severity:"critical"|"warning"|"info"; agent:string; fact:string; time:string }
 export type DecisionView = { negotiationId:number; objective:string; domain:DomainCode; agent:string; verdict:Verdict; label:string; impact:string; delta:number; decidedBy:string; at:string }
+export type DesignValueView = { id:string; key:string; label:string; weights:Record<string,number> }
+export type DesignFactorView = { code:string; name:string; description:string; input:"rating"|"toggle"|"choice"; values:DesignValueView[] }
+export type DesignProfileView = { id:number; name:string; inputs:Record<string,number>; appliedBy:string; appliedAt:string }
 export type AiSystemView = { id:number; name:string; area:string; description:string; risk:string; status:string; controls:string[]; acceptedControls:string[]; assessed:boolean }
-export type GovernanceData = { domains:DomainView[]; objectives:ObjectiveView[]; agents:AgentView[]; negotiations:NegotiationView[]; notices:NoticeView[]; decisions:DecisionView[]; aiSystems:AiSystemView[] }
+export type GovernanceData = { domains:DomainView[]; objectives:ObjectiveView[]; agents:AgentView[]; negotiations:NegotiationView[]; notices:NoticeView[]; decisions:DecisionView[]; aiSystems:AiSystemView[]; designFactors:DesignFactorView[]; activeProfile:DesignProfileView|null }
