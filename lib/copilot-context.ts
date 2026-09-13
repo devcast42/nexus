@@ -1,19 +1,20 @@
-import { clampScore } from "./score"
+import { decisionDelta,domainHealth,objectiveHealth,priorityOf } from "./health"
 import type { GovernanceData } from "./types"
 
 // Instantánea compacta del estado de gobierno que se le entrega al modelo.
 // Todo lo que el copiloto puede afirmar tiene que salir de aquí.
 export function buildGovernanceSnapshot(data:GovernanceData){
- const deltaFor=(objective:string)=>data.decisions.filter(d=>d.objective===objective).reduce((sum,d)=>sum+d.delta,0)
- const domainDelta=(domain:string)=>data.decisions.filter(d=>d.domain===domain).reduce((sum,d)=>sum+d.delta,0)
+ const deltaFor=(objective:string)=>decisionDelta(data.decisions,objective)
 
- const domains=data.domains.map(d=>`${d.code} (${d.name}): salud ${clampScore(d.baseScore+domainDelta(d.code))}/100, tendencia ${d.trend}%, capacidad objetivo ${d.targetMaturity}/5`).join("\n")
+ const domains=data.domains.map(d=>`${d.code} (${d.name}): salud ${domainHealth(d.code,data.objectives,data.decisions)}/100 (promedio de sus objetivos), tendencia ${d.trend}%, capacidad objetivo ${d.targetMaturity}/5`).join("\n")
 
+ // Cada objetivo dice si su salud es una MEDICIÓN sobre evidencia operativa o una
+ // línea base sin medir. El copiloto debe distinguirlos al responder.
  const objectives=data.objectives.map(o=>{
-  const score=clampScore(o.baseScore+deltaFor(o.code))
-  const priority=score<65?"Alta":score<80?"Media":"Baja"
+  const score=objectiveHealth(o,data.decisions)
   const moved=deltaFor(o.code)
-  return `${o.code} ${o.name} · salud ${score}/100 · prioridad ${priority}${moved!==0?` · movido ${moved>0?"+":""}${moved} por decisiones del comité`:""}`
+  const basis=o.measure?`MEDIDO: ${o.measure.metric} — ${o.measure.evidence} (n=${o.measure.sample})`:`LÍNEA BASE sin medición operativa`
+  return `${o.code} ${o.name} · salud ${score}/100 · prioridad ${priorityOf(score)} · ${basis}${moved!==0?` · movido ${moved>0?"+":""}${moved} por decisiones del comité`:""}`
  }).join("\n")
 
  const decided=new Set(data.decisions.map(d=>d.negotiationId))
@@ -39,6 +40,9 @@ ${data.activeProfile?`${data.activeProfile.name}, aplicado por ${data.activeProf
 
 ## Dominios COBIT
 ${domains}
+
+## Cobertura de medición
+${data.coverage.covered} de ${data.coverage.total} objetivos se derivan de evidencia operativa; el resto muestra línea base.
 
 ## Objetivos (${data.objectives.length})
 ${objectives}
@@ -68,6 +72,7 @@ Reglas:
 - Responde ÚNICAMENTE con lo que aparece en el estado de gobierno que se te entrega. Si algo no está ahí, di explícitamente que el sistema no lo registra; nunca lo inventes ni lo estimes.
 - No inventes cifras. Cita los números tal como aparecen.
 - Cita siempre los códigos de objetivo (APO12, DSS04...) cuando hables de un objetivo, para que el comité pueda rastrear la evidencia.
+- Distingue siempre si un puntaje es MEDIDO (y entonces di sobre qué evidencia y con qué muestra) o es LÍNEA BASE sin medir. Nunca presentes una línea base como si fuera una medición.
 - Escribe en español, directo y sin relleno. Un par de párrafos cortos como máximo, salvo que te pidan más detalle.
 - Formato: Markdown simple. Solo negritas y listas con viñetas o numeradas. Nada de encabezados, tablas, bloques de código ni líneas separadoras: la respuesta se lee en una burbuja de chat estrecha.
 - Asesoras, no decides. Cuando haya una decisión pendiente, explica qué está en juego en cada rama y quién debe firmar, sin recomendar una firma como si fuera tuya.

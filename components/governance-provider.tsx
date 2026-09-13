@@ -1,7 +1,8 @@
 "use client"
 import { createContext,useCallback,useContext,useMemo,useTransition,type ReactNode } from "react"
 import { decideNegotiation,undoDecision } from "@/app/actions"
-import type { DecisionView,DomainCode,GovernanceData,NegotiationView,Verdict } from "@/lib/types"
+import { decisionDelta,domainHealth,objectiveHealth } from "@/lib/health"
+import type { DecisionView,DomainCode,GovernanceData,NegotiationView,ObjectiveView,Verdict } from "@/lib/types"
 
 type Governance = GovernanceData & {
  pending:NegotiationView[]
@@ -12,6 +13,9 @@ type Governance = GovernanceData & {
  undo:(negotiationId:number)=>void
  deltaFor:(objective:string)=>number
  domainDelta:(domain:DomainCode)=>number
+ // Salud con decisiones aplicadas, y cuánto de ella se debe a las decisiones
+ healthOf:(objective:ObjectiveView)=>number
+ domainHealthOf:(domain:DomainCode)=>{score:number;fromDecisions:number}
 }
 const GovernanceContext = createContext<Governance|null>(null)
 
@@ -32,8 +36,10 @@ export function GovernanceProvider({data,children}:{data:GovernanceData;children
    settled:data.negotiations.filter(n=>n.outcome==="resolved"||decided.has(n.id)),
    log:data.decisions,
    saving,decide,undo,
-   deltaFor:objective=>data.decisions.filter(d=>d.objective===objective).reduce((sum,d)=>sum+d.delta,0),
+   deltaFor:objective=>decisionDelta(data.decisions,objective),
    domainDelta:domain=>data.decisions.filter(d=>d.domain===domain).reduce((sum,d)=>sum+d.delta,0),
+   healthOf:objective=>objectiveHealth(objective,data.decisions),
+   domainHealthOf:domain=>{const score=domainHealth(domain,data.objectives,data.decisions);return {score,fromDecisions:score-domainHealth(domain,data.objectives,[])}},
   }
  },[data,saving,decide,undo])
 

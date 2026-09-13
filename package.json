@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx lib/db/seed.ts"
+    "db:seed": "tsx lib/db/seed.ts",
+    "ops:generate": "tsx scripts/generate-activity.ts",
+    "ops:reset": "tsx scripts/reset-operations.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

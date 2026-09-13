@@ -1,4 +1,4 @@
-import { integer,jsonb,pgTable,primaryKey,real,serial,text,timestamp,varchar } from "drizzle-orm/pg-core"
+import { boolean,integer,jsonb,pgTable,primaryKey,real,serial,text,timestamp,varchar } from "drizzle-orm/pg-core"
 
 export const domains = pgTable("domains",{
  code:varchar("code",{length:3}).primaryKey(),
@@ -27,7 +27,10 @@ export const agents = pgTable("agents",{
 })
 
 export const negotiations = pgTable("negotiations",{
- id:integer("id").primaryKey(),
+ id:serial("id").primaryKey(),
+ // Clave estable de la regla que la produjo ("risk-over-appetite:RSK-0001").
+ // Las negociaciones ya no se siembran: las generan reglas sobre la capa operativa.
+ ruleKey:varchar("rule_key",{length:64}).notNull().unique(),
  objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
  severity:text("severity").$type<"critical"|"warning"|"info">().notNull(),
@@ -50,11 +53,17 @@ export const negotiations = pgTable("negotiations",{
  rejectLabel:text("reject_label"),
  rejectImpact:text("reject_impact"),
  rejectDelta:integer("reject_delta"),
+ // Operaciones que ejecuta cada rama al firmarse. El efecto de una decisión ya no
+ // es un delta: es lo que la operación cambia en la capa operativa y, por tanto,
+ // en la medición.
+ approveOps:jsonb("approve_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
+ rejectOps:jsonb("reject_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
  openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
 })
 
 export const notices = pgTable("notices",{
- id:integer("id").primaryKey(),
+ id:serial("id").primaryKey(),
+ ruleKey:varchar("rule_key",{length:64}).notNull().unique(),
  objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
  severity:text("severity").$type<"critical"|"warning"|"info">().notNull(),
@@ -120,6 +129,143 @@ export const designProfiles = pgTable("design_profiles",{
  id:serial("id").primaryKey(),
  name:text("name").notNull(),
  inputs:jsonb("inputs").$type<Record<string,number>>().notNull(),
+ // Umbral de riesgo residual (0-5) que el comité tolera. Es lo que EDM03 mide y
+ // lo que los agentes citan cuando escalan: no es una constante del código.
+ riskAppetite:real("risk_appetite").notNull().default(3.5),
  appliedBy:text("applied_by").notNull().default("Lina Castillo"),
  appliedAt:timestamp("applied_at",{withTimezone:true}).notNull().defaultNow(),
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAPA OPERATIVA
+//
+// Separación deliberada:
+//   MAESTROS (services, suppliers, controls) se siembran, como en cualquier
+//   organización: son el catálogo con el que se opera.
+//   TRANSACCIONALES (el resto) NO se siembran nunca. Solo entran por la API
+//   operativa, con su autor y su hora. Es lo que permite que el gobierno mida
+//   en vez de declarar: cada indicador se puede rastrear hasta el hecho que lo
+//   produjo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const services = pgTable("services",{
+ code:varchar("code",{length:12}).primaryKey(),
+ name:text("name").notNull(),
+ criticality:text("criticality").$type<"Crítico"|"Alto"|"Medio"|"Bajo">().notNull(),
+ owner:text("owner").notNull(),
+ targetAvailability:real("target_availability").notNull(),
+ // Minutos comprometidos para resolver, por severidad
+ slaCriticalMinutes:integer("sla_critical_minutes").notNull(),
+ slaHighMinutes:integer("sla_high_minutes").notNull(),
+})
+
+export const suppliers = pgTable("suppliers",{
+ code:varchar("code",{length:12}).primaryKey(),
+ name:text("name").notNull(),
+ criticality:text("criticality").$type<"Crítico"|"Alto"|"Medio"|"Bajo">().notNull(),
+ service:text("service").notNull(),
+ contractEnd:timestamp("contract_end",{withTimezone:true}).notNull(),
+})
+
+export const controls = pgTable("controls",{
+ code:varchar("code",{length:12}).primaryKey(),
+ name:text("name").notNull(),
+ objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
+ owner:text("owner").notNull(),
+ frequencyDays:integer("frequency_days").notNull(),
+})
+
+export const incidents = pgTable("incidents",{
+ id:serial("id").primaryKey(),
+ code:varchar("code",{length:16}).notNull().unique(),
+ title:text("title").notNull(),
+ serviceCode:varchar("service_code",{length:12}).notNull().references(()=>services.code),
+ severity:text("severity").$type<"Crítica"|"Alta"|"Media"|"Baja">().notNull(),
+ openedAt:timestamp("opened_at",{withTimezone:true}).notNull(),
+ resolvedAt:timestamp("resolved_at",{withTimezone:true}),
+ // Un incidente puede quedar ligado al cambio que lo provocó (BAI06/BAI07)
+ causedByChange:varchar("caused_by_change",{length:16}),
+ recurring:boolean("recurring").notNull().default(false),
+ reportedBy:text("reported_by").notNull(),
+})
+
+export const changes = pgTable("changes",{
+ id:serial("id").primaryKey(),
+ code:varchar("code",{length:16}).notNull().unique(),
+ title:text("title").notNull(),
+ serviceCode:varchar("service_code",{length:12}).notNull().references(()=>services.code),
+ kind:text("kind").$type<"Normal"|"Estándar"|"Emergencia">().notNull(),
+ requestedAt:timestamp("requested_at",{withTimezone:true}).notNull(),
+ windowStart:timestamp("window_start",{withTimezone:true}),
+ windowEnd:timestamp("window_end",{withTimezone:true}),
+ deployedAt:timestamp("deployed_at",{withTimezone:true}),
+ // Evidencia de aprobación completa: el insumo directo de BAI06
+ hasApprovalEvidence:boolean("has_approval_evidence").notNull().default(false),
+ rolledBack:boolean("rolled_back").notNull().default(false),
+ requestedBy:text("requested_by").notNull(),
+})
+
+export const projects = pgTable("projects",{
+ id:serial("id").primaryKey(),
+ code:varchar("code",{length:16}).notNull().unique(),
+ name:text("name").notNull(),
+ sponsor:text("sponsor").notNull(),
+ budget:integer("budget").notNull(),
+ spent:integer("spent").notNull().default(0),
+ startedAt:timestamp("started_at",{withTimezone:true}).notNull(),
+ plannedEnd:timestamp("planned_end",{withTimezone:true}).notNull(),
+ forecastEnd:timestamp("forecast_end",{withTimezone:true}).notNull(),
+ status:text("status").$type<"En curso"|"En riesgo"|"Detenido"|"Cerrado">().notNull(),
+})
+
+export const risks = pgTable("risks",{
+ id:serial("id").primaryKey(),
+ code:varchar("code",{length:16}).notNull().unique(),
+ title:text("title").notNull(),
+ category:text("category").notNull(),
+ projectCode:varchar("project_code",{length:16}),
+ impact:integer("impact").notNull(),
+ likelihood:integer("likelihood").notNull(),
+ mitigationsPlanned:integer("mitigations_planned").notNull().default(0),
+ mitigationsDone:integer("mitigations_done").notNull().default(0),
+ owner:text("owner").notNull(),
+ status:text("status").$type<"Abierto"|"Mitigado"|"Aceptado"|"Cerrado">().notNull(),
+ raisedAt:timestamp("raised_at",{withTimezone:true}).notNull(),
+})
+
+export const slaMeasurements = pgTable("sla_measurements",{
+ id:serial("id").primaryKey(),
+ serviceCode:varchar("service_code",{length:12}).notNull().references(()=>services.code),
+ periodStart:timestamp("period_start",{withTimezone:true}).notNull(),
+ measuredAvailability:real("measured_availability").notNull(),
+ breaches:integer("breaches").notNull().default(0),
+})
+
+export const supplierEvaluations = pgTable("supplier_evaluations",{
+ id:serial("id").primaryKey(),
+ supplierCode:varchar("supplier_code",{length:12}).notNull().references(()=>suppliers.code),
+ evaluatedAt:timestamp("evaluated_at",{withTimezone:true}).notNull(),
+ slaCompliance:real("sla_compliance").notNull(),
+ findings:integer("findings").notNull().default(0),
+ evaluatedBy:text("evaluated_by").notNull(),
+})
+
+export const securityEvents = pgTable("security_events",{
+ id:serial("id").primaryKey(),
+ code:varchar("code",{length:16}).notNull().unique(),
+ kind:text("kind").notNull(),
+ severity:text("severity").$type<"Crítica"|"Alta"|"Media"|"Baja">().notNull(),
+ detectedAt:timestamp("detected_at",{withTimezone:true}).notNull(),
+ containedAt:timestamp("contained_at",{withTimezone:true}),
+ dataInvolved:boolean("data_involved").notNull().default(false),
+ source:text("source").notNull(),
+})
+
+export const controlTests = pgTable("control_tests",{
+ id:serial("id").primaryKey(),
+ controlCode:varchar("control_code",{length:12}).notNull().references(()=>controls.code),
+ testedAt:timestamp("tested_at",{withTimezone:true}).notNull(),
+ result:text("result").$type<"Efectivo"|"Parcial"|"Inefectivo">().notNull(),
+ evidence:text("evidence").notNull(),
+ testedBy:text("tested_by").notNull(),
 })
