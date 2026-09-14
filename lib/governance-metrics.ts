@@ -8,13 +8,14 @@ type SecurityEvent = typeof schema.securityEvents.$inferSelect
 type ControlTest = typeof schema.controlTests.$inferSelect
 type Service = typeof schema.services.$inferSelect
 type Control = typeof schema.controls.$inferSelect
+type Supplier = typeof schema.suppliers.$inferSelect
 type SlaMeasurement = typeof schema.slaMeasurements.$inferSelect
 type SupplierEvaluation = typeof schema.supplierEvaluations.$inferSelect
 
 export type OperationalData = {
  incidents:Incident[]; changes:Change[]; risks:Risk[]; projects:Project[]
  securityEvents:SecurityEvent[]; controlTests:ControlTest[]
- services:Service[]; controls:Control[]
+ services:Service[]; controls:Control[]; suppliers:Supplier[]
  slaMeasurements:SlaMeasurement[]; supplierEvaluations:SupplierEvaluation[]
 }
 

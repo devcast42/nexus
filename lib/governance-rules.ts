@@ -150,12 +150,12 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
 
 export async function loadOperationalData():Promise<OperationalData>{
  const db=getDb()
- const [incidents,changes,risks,projects,securityEvents,controlTests,services,controls,slaMeasurements,supplierEvaluations]=await Promise.all([
+ const [incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations]=await Promise.all([
   db.select().from(schema.incidents),db.select().from(schema.changes),db.select().from(schema.risks),db.select().from(schema.projects),
-  db.select().from(schema.securityEvents),db.select().from(schema.controlTests),db.select().from(schema.services),db.select().from(schema.controls),
+  db.select().from(schema.securityEvents),db.select().from(schema.controlTests),db.select().from(schema.services),db.select().from(schema.controls),db.select().from(schema.suppliers),
   db.select().from(schema.slaMeasurements),db.select().from(schema.supplierEvaluations),
  ])
- return {incidents,changes,risks,projects,securityEvents,controlTests,services,controls,slaMeasurements,supplierEvaluations}
+ return {incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations}
 }
 
 // Reevalúa las reglas y sincroniza la tabla: crea las nuevas, actualiza el hecho de

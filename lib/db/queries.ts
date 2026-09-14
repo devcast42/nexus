@@ -1,5 +1,6 @@
 import { asc,desc } from "drizzle-orm"
 import { deriveMeasures,measurementCoverage } from "../governance-metrics"
+import { buildOperationsView } from "./operations-view"
 import type { AgentView,AiSystemView,CoverageView,DecisionView,DesignFactorView,DesignProfileView,DomainCode,DomainView,GovernanceData,MeasureView,NegotiationView,NoticeView,ObjectiveView } from "../types"
 import { getDb } from "./index"
 import * as schema from "./schema"
@@ -18,7 +19,7 @@ function clockTime(date:Date){return date.toLocaleTimeString("es-PE",{hour:"2-di
 
 export async function loadGovernanceData():Promise<GovernanceData>{
  const db=getDb()
- const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows,factorRows,valueRows,weightRows,profileRows,incidents,changes,risks,projects,securityEvents,controlTests,services,controls,slaMeasurements,supplierEvaluations]=await Promise.all([
+ const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows,factorRows,valueRows,weightRows,profileRows,incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations]=await Promise.all([
   db.select().from(schema.domains).orderBy(asc(schema.domains.code)),
   db.select().from(schema.objectives).orderBy(asc(schema.objectives.code)),
   db.select().from(schema.agents).orderBy(asc(schema.agents.code)),
@@ -39,6 +40,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
   db.select().from(schema.controlTests),
   db.select().from(schema.services),
   db.select().from(schema.controls),
+  db.select().from(schema.suppliers),
   db.select().from(schema.slaMeasurements),
   db.select().from(schema.supplierEvaluations),
  ])
@@ -49,7 +51,8 @@ export async function loadGovernanceData():Promise<GovernanceData>{
 
  const profile=profileRows[0]
  const riskAppetite=profile?.riskAppetite??3.5
- const measured=deriveMeasures({incidents,changes,risks,projects,securityEvents,controlTests,services,controls,slaMeasurements,supplierEvaluations},riskAppetite)
+ const operational={incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations}
+ const measured=deriveMeasures(operational,riskAppetite)
  const measureOf=new Map<string,MeasureView>(measured.map(m=>[m.objective,{score:m.score,metric:m.metric,evidence:m.evidence,sample:m.sample}]))
  // MEA01 se mide con la propia cobertura: cuánto del sistema de gobierno está medido
  const coverageRaw=measurementCoverage(measured,objectiveRows.length)
@@ -81,5 +84,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
   values:valueRows.filter(v=>v.factorCode===f.code).map(v=>({id:v.id,key:v.valueKey,label:v.label,weights:weightsByValue.get(v.id)??{}}))}))
  const activeProfile:DesignProfileView|null=profile?{id:profile.id,name:profile.name,inputs:profile.inputs,riskAppetite:profile.riskAppetite,appliedBy:profile.appliedBy,appliedAt:`${profile.appliedAt.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(profile.appliedAt)}`}:null
 
- return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile,coverage}
+ const operations=buildOperationsView(operational,new Map(objectiveRows.map(o=>[o.code,o.name])),riskAppetite)
+
+ return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile,coverage,operations}
 }
