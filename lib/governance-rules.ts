@@ -161,9 +161,53 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   })
  }
 
- // N · Eventos de seguridad sin contener por más de 48 h
- for(const e of ops.securityEvents.filter(e=>!e.containedAt&&now.getTime()-e.detectedAt.getTime()>2*DAY)){
-  notices.push({ruleKey:`security-uncontained:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:e.severity==="Crítica"?"critical":"warning",agent:"Guardián DSS",
+ // R6 · Evento con información corporativa involucrada, sin contener → escala de inmediato (APO13).
+ // Activar un protocolo de brecha —con sus obligaciones de notificación— no lo decide un agente.
+ for(const e of ops.securityEvents.filter(e=>e.dataInvolved&&!e.containedAt)){
+  const hours=Math.floor((now.getTime()-e.detectedAt.getTime())/36e5)
+  const related=ops.securityEvents.filter(x=>x.kind===e.kind&&x.id!==e.id&&now.getTime()-x.detectedAt.getTime()<=30*DAY).length
+  negotiations.push({
+   ruleKey:`security-data-exposure:${e.code}`,objectiveCode:"APO13",domainCode:"APO",severity:e.severity==="Crítica"||e.severity==="Alta"?"critical":"warning",
+   fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) involucra información corporativa y lleva ${hours} h sin contención registrada.`,
+   initiatorAgent:"APO",initiatorPosition:`Activar el protocolo de brecha: contención inmediata, evaluación de la información expuesta y revisión de obligaciones de notificación.`,
+   counterpartAgent:"DSS",counterpartPosition:`Contener y evaluar primero: activar el protocolo antes de conocer el alcance dispara notificaciones externas sobre un evento de severidad ${e.severity.toLowerCase()} que puede no ameritarlas.`,
+   principleCode:"APO13",outcome:"escalated",resolution:null,
+   escalationReason:"Activar un protocolo de brecha compromete a la organización frente a terceros y reguladores; no activarlo con información expuesta deja el riesgo sin dueño. Ninguna de las dos posturas la puede tomar un agente.",
+   proposal:`Ordenar la contención inmediata de ${e.code} y abrir la evaluación de alcance bajo el protocolo de brecha.`,
+   approveLabel:"Activar protocolo",approveImpact:`${e.code} queda contenido ahora y la evaluación de alcance abierta a nombre del comité. DSS05 lo mide como contenido; APO13 registra el evento tratado como brecha.`,
+   rejectLabel:"Tratar como incidente",rejectImpact:`${e.code} se gestiona como incidente operativo sin protocolo de brecha. Sigue sin contener hasta que operación actúe; la decisión de no notificar queda a nombre del comité.`,
+   approveOps:[{type:"security.contain",payload:{code:e.code}}],rejectOps:[],
+   openedAt:e.detectedAt,
+   evidence:[`Evento ${e.code}: «${e.kind}», severidad ${e.severity}, detectado el ${fmt(e.detectedAt)} por ${e.source}. Lleva ${hours} h sin contención.`,
+    `Información corporativa involucrada: SÍ.`,
+    `Eventos del mismo tipo en los últimos 30 días: ${related}. Eventos abiertos en total: ${ops.securityEvents.filter(x=>!x.containedAt).length}.`].join("\n"),
+  })
+ }
+
+ // R7 · Evento crítico o alto sin contener más de 24 h → escala (DSS05)
+ for(const e of ops.securityEvents.filter(e=>!e.containedAt&&!e.dataInvolved&&(e.severity==="Crítica"||e.severity==="Alta")&&now.getTime()-e.detectedAt.getTime()>DAY)){
+  const hours=Math.floor((now.getTime()-e.detectedAt.getTime())/36e5)
+  negotiations.push({
+   ruleKey:`security-uncontained-critical:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:"critical",
+   fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) lleva ${hours} h sin contención registrada.`,
+   initiatorAgent:"DSS",initiatorPosition:`Aislar el activo afectado ahora aunque interrumpa el servicio: ${hours} h sin contener un evento ${e.severity.toLowerCase()} es inaceptable.`,
+   counterpartAgent:"BAI",counterpartPosition:"Aislar sin ventana rompe cambios en curso y compromisos con el negocio; la contención debe entrar por una ventana de emergencia coordinada.",
+   principleCode:"DSS05",outcome:"escalated",resolution:null,
+   escalationReason:"Interrumpir un servicio para contener, o aceptar horas adicionales de exposición, son costos que el mandato no asigna a ningún agente.",
+   proposal:`Autorizar la contención inmediata de ${e.code} fuera de ventana.`,
+   approveLabel:"Contener ahora",approveImpact:`${e.code} queda contenido; DSS05 lo mide como tal. El impacto sobre cambios en curso se asume por decisión del comité.`,
+   rejectLabel:"Esperar ventana",rejectImpact:`${e.code} sigue expuesto hasta la próxima ventana de emergencia; la exposición adicional queda a nombre del comité.`,
+   approveOps:[{type:"security.contain",payload:{code:e.code}}],rejectOps:[],
+   openedAt:e.detectedAt,
+   evidence:[`Evento ${e.code}: «${e.kind}», severidad ${e.severity}, detectado el ${fmt(e.detectedAt)} por ${e.source}. ${hours} h sin contención.`,
+    `Sin información corporativa involucrada.`,
+    `Eventos abiertos en total: ${ops.securityEvents.filter(x=>!x.containedAt).length}; contenidos en los últimos 30 días: ${ops.securityEvents.filter(x=>x.containedAt&&now.getTime()-x.detectedAt.getTime()<=30*DAY).length}.`].join("\n"),
+  })
+ }
+
+ // N · Eventos medios o bajos sin contener por más de 48 h: aviso, no decisión
+ for(const e of ops.securityEvents.filter(e=>!e.containedAt&&!e.dataInvolved&&e.severity!=="Crítica"&&e.severity!=="Alta"&&now.getTime()-e.detectedAt.getTime()>2*DAY)){
+  notices.push({ruleKey:`security-uncontained:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:"warning",agent:"Guardián DSS",
    fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) lleva ${Math.floor((now.getTime()-e.detectedAt.getTime())/DAY)} días sin contención registrada.`,raisedAt:e.detectedAt})
  }
 
