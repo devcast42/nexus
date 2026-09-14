@@ -20,7 +20,7 @@ NEXT_PUBLIC_COMMITTEE_SIGNER="Lina Castillo"
 NEXT_PUBLIC_COMMITTEE_ROLE="Gobierno de TI"
 ```
 
-**3. Modelo.** Con `GROQ_API_KEY` los agentes redactan sus posiciones. Cada discrepancia tarda **10–15 s** en aparecer argumentada; el plan gratuito de Groq permite unas 2 por minuto. Para el video, deja pasar ese tiempo o corta. Si prefieres respuesta inmediata con texto de plantilla, `AUTHORING_BATCH=0`.
+**3. Modelo.** Con `GROQ_API_KEY` los agentes redactan sus posiciones. Cada discrepancia tarda **entre 4 y 15 s** en aparecer argumentada (Groq es rápido; los reintentos por cuota son lo lento); el plan gratuito permite unas 2 por minuto. Para el video, deja pasar ese tiempo o corta. Si prefieres respuesta inmediata con texto de plantilla, `AUTHORING_BATCH=0`.
 
 **4. Servidor.** `pnpm dev` y abre la URL. Reinícialo si cambiaste `.env`.
 
@@ -72,9 +72,13 @@ Ve a **Command Center**: la decisión pendiente muestra el hecho, **las dos posi
 
 **Qué decir:** *"La regla detecta. Los agentes argumentan desde la evidencia, cada uno desde su mandato: el auditor quiere revertir, el arquitecto defiende que el cambio es estable. Nexus aplica el mandato y concluye que ninguna postura cabe sin que el comité decida. El comité soy yo."*
 
-Pulsa **Exigir evidencia**. Vuelve a *Operación → Cambios*: el cambio ahora tiene evidencia registrada. En *Command Center*, **BAI06 aparece medido al 100%** y la negociación pasó al *Registro de decisiones* con *"vía operación"* como efecto.
+Pulsa **Exigir evidencia**. La negociación pasa al *Registro de decisiones* con *"exigencia registrada"*. **El cambio sigue sin evidencia** — el comité exigió, no adjuntó — y BAI06 sigue midiéndolo como no conforme.
 
-*"La firma no sumó puntos: ejecutó una operación —adjuntar la evidencia— y la medición cambió porque el hecho cambió."*
+*"Firmar no fabrica el cumplimiento. El comité exige; quien tiene la evidencia la pone."*
+
+Ahora actúa como operación: *Operación → Cambios*, abre el cambio y pulsa **Adjuntar evidencia de aprobación**. Vuelve a *Command Center*: **BAI06 aparece medido al 100%**.
+
+*"La medición cambió porque el hecho cambió, no porque alguien firmara. Esa separación —decidir arriba, ejecutar abajo, medir lo que de verdad pasó— es el sistema entero."*
 
 ## Escena 6 · El riesgo que supera el apetito — *Operación → Proyectos, Riesgos* · 2.5 min
 
@@ -92,7 +96,7 @@ Opcional: en *Riesgos*, abre el riesgo y **marca una mitigación**. Cuando el re
 
 **Qué hacer:** **Registrar evento**, tipo *Fuga de credenciales*, severidad **Alta**, marca **Involucró información corporativa**.
 
-**Qué se ve:** escala de inmediato bajo APO13. APO pide activar el protocolo de brecha; DSS pide contener y evaluar antes de disparar notificaciones externas. Firma **Activar protocolo**: la operación `security.contain` contiene el evento ahora y **DSS05** lo mide.
+**Qué se ve:** escala de inmediato bajo APO13. APO pide activar el protocolo de brecha; DSS pide contener y evaluar antes de disparar notificaciones externas. Firma **Activar protocolo**: queda registrado a nombre del comité. Luego, como SOC, en *Operación → Seguridad* pulsa **Contener** sobre el evento: **DSS05** lo mide en ese momento, no al firmar.
 
 **Qué decir:** *"Activar un protocolo de brecha compromete a la empresa frente a terceros. Ningún agente lo decide. Un evento sin datos y de severidad media solo generaría un aviso a las 48 horas: no todo merece una decisión."*
 

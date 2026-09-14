@@ -28,7 +28,8 @@ export type NegotiationView = {
  authoredBy:"model"|"rule"; authoringModel:string|null
 }
 export type NoticeView = { id:number; objective:string; domain:DomainCode; severity:"critical"|"warning"|"info"; agent:string; fact:string; time:string }
-export type DecisionView = { negotiationId:number; objective:string; domain:DomainCode; agent:string; verdict:Verdict; label:string; impact:string; delta:number; decidedBy:string; at:string }
+// `executed`: la rama firmada ejecutó operaciones (detener proyecto, aceptar riesgo) o solo registró una exigencia
+export type DecisionView = { negotiationId:number; objective:string; domain:DomainCode; agent:string; verdict:Verdict; label:string; impact:string; delta:number; executed:boolean; decidedBy:string; at:string }
 export type DesignValueView = { id:string; key:string; label:string; weights:Record<string,number> }
 export type DesignFactorView = { code:string; name:string; description:string; input:"rating"|"toggle"|"choice"; values:DesignValueView[] }
 export type DesignProfileView = { id:number; name:string; inputs:Record<string,number>; riskAppetite:number; appliedBy:string; appliedAt:string }

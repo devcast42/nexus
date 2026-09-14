@@ -33,7 +33,7 @@ const Escalated=z.object({
 })
 
 // Cambiar este número obliga a redactar de nuevo lo ya escrito con el prompt anterior.
-export const PROMPT_VERSION="4"
+export const PROMPT_VERSION="5"
 
 const STYLE="Escribe en español, en primera persona del agente, sin saludos ni preámbulos. Argumenta SOLO con los hechos entregados: cifras, códigos y fechas tal como aparecen. No inventes datos. No menciones el apetito de riesgo salvo que el hecho sea un riesgo con residual. Máximo 60 palabras por campo de texto; las etiquetas de botón, máximo 4 palabras."
 const LIMITS="Tus poderes: observar, argumentar y PROPONER acciones a otro agente o al comité. NO puedes ordenar, suspender servicios, detener proyectos ni cerrar riesgos por tu cuenta: eso lo decide el comité. Habla como quien propone, no como quien ejecuta."

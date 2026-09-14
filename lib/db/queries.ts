@@ -92,7 +92,8 @@ export async function loadGovernanceData():Promise<GovernanceData>{
    watched:objectiveRows.filter(o=>o.domainCode===a.code).length,activity,
    escalated:mine.filter(n=>n.outcome==="escalated").length,resolved:mine.filter(n=>n.outcome==="resolved").length,signed:mine.filter(n=>signedIds.has(n.id)).length}
  })
- const decisions:DecisionView[]=decisionRows.map(r=>({negotiationId:r.negotiationId,objective:r.objectiveCode,domain:r.domainCode as DomainCode,agent:r.agent,verdict:r.verdict,label:r.label,impact:r.impact,delta:r.delta,decidedBy:r.decidedBy,at:clockTime(r.decidedAt)}))
+ const negotiationById=new Map(negotiationRows.map(n=>[n.id,n]))
+ const decisions:DecisionView[]=decisionRows.map(r=>({negotiationId:r.negotiationId,executed:(()=>{const n=negotiationById.get(r.negotiationId);return !!n&&(r.verdict==="approved"?n.approveOps:n.rejectOps).length>0})(),objective:r.objectiveCode,domain:r.domainCode as DomainCode,agent:r.agent,verdict:r.verdict,label:r.label,impact:r.impact,delta:r.delta,decidedBy:r.decidedBy,at:clockTime(r.decidedAt)}))
  const aiSystems:AiSystemView[]=aiRows.map(s=>({id:s.id,name:s.name,area:s.area,description:s.description,risk:s.risk,status:s.status,controls:s.controls,acceptedControls:s.acceptedControls,assessed:s.assessedAt!==null}))
 
  const weightsByValue=new Map<string,Record<string,number>>()

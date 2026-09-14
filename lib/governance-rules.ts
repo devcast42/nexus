@@ -81,9 +81,10 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
    principleCode:"BAI06",outcome:"escalated",resolution:null,
    escalationReason:"BAI06 exige evidencia previa al despliegue, pero aplicarlo ahora significa revertir un cambio estable. Autorizar la excepción le corresponde al comité.",
    proposal:`Exigir evidencia retroactiva a ${change.requestedBy} en 48 horas, manteniendo ${change.code} en producción.`,
-   approveLabel:"Exigir evidencia",approveImpact:`La evidencia se adjunta a ${change.code}; BAI06 vuelve a contarlo como conforme en la próxima medición.`,
+   approveLabel:"Exigir evidencia",approveImpact:`Se registra la exigencia a ${change.requestedBy} con plazo de 48 h, a nombre del comité. BAI06 seguirá contando ${change.code} como no conforme hasta que la evidencia se adjunte desde Operación → Cambios.`,
    rejectLabel:"Aceptar como excepción",rejectImpact:`${change.code} queda ratificado sin evidencia. BAI06 lo seguirá contando como no conforme y la excepción queda a tu nombre.`,
-   approveOps:[{type:"change.attachEvidence",payload:{code:change.code}}],rejectOps:[],
+   // La firma no adjunta nada: exigir evidencia no es tenerla. Quien la tiene la adjunta.
+   approveOps:[],rejectOps:[],
    openedAt:change.deployedAt!,
    evidence:[`Cambio ${change.code}: «${change.title}», tipo ${change.kind}, sobre ${serviceOf.get(change.serviceCode)?.name??change.serviceCode} (criticidad ${serviceOf.get(change.serviceCode)?.criticality??"?"}).`,
     `Solicitado el ${fmt(change.requestedAt)} por ${change.requestedBy}; desplegado el ${fmt(change.deployedAt!)}${change.windowStart&&change.windowEnd?(change.deployedAt!>=change.windowStart&&change.deployedAt!<=change.windowEnd?" dentro de ventana":" FUERA de ventana"):""}.`,
@@ -174,9 +175,10 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
    principleCode:"APO13",outcome:"escalated",resolution:null,
    escalationReason:"Activar un protocolo de brecha compromete a la organización frente a terceros y reguladores; no activarlo con información expuesta deja el riesgo sin dueño. Ninguna de las dos posturas la puede tomar un agente.",
    proposal:`Ordenar la contención inmediata de ${e.code} y abrir la evaluación de alcance bajo el protocolo de brecha.`,
-   approveLabel:"Activar protocolo",approveImpact:`${e.code} queda contenido ahora y la evaluación de alcance abierta a nombre del comité. DSS05 lo mide como contenido; APO13 registra el evento tratado como brecha.`,
-   rejectLabel:"Tratar como incidente",rejectImpact:`${e.code} se gestiona como incidente operativo sin protocolo de brecha. Sigue sin contener hasta que operación actúe; la decisión de no notificar queda a nombre del comité.`,
-   approveOps:[{type:"security.contain",payload:{code:e.code}}],rejectOps:[],
+   approveLabel:"Activar protocolo",approveImpact:`El protocolo de brecha queda activado a nombre del comité: contención prioritaria, evaluación de alcance y revisión de notificaciones. La contención la ejecuta ${e.source} desde Operación → Seguridad; DSS05 la medirá cuando ocurra.`,
+   rejectLabel:"Tratar como incidente",rejectImpact:`${e.code} se gestiona como incidente operativo sin protocolo de brecha. La decisión de no notificar queda a nombre del comité.`,
+   // La firma activa el protocolo; contener es trabajo operativo y se registra desde la mesa
+   approveOps:[],rejectOps:[],
    openedAt:e.detectedAt,
    evidence:[`Evento ${e.code}: «${e.kind}», severidad ${e.severity}, detectado el ${fmt(e.detectedAt)} por ${e.source}. Lleva ${hours} h sin contención.`,
     `Información corporativa involucrada: SÍ.`,
@@ -195,9 +197,9 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
    principleCode:"DSS05",outcome:"escalated",resolution:null,
    escalationReason:"Interrumpir un servicio para contener, o aceptar horas adicionales de exposición, son costos que el mandato no asigna a ningún agente.",
    proposal:`Autorizar la contención inmediata de ${e.code} fuera de ventana.`,
-   approveLabel:"Contener ahora",approveImpact:`${e.code} queda contenido; DSS05 lo mide como tal. El impacto sobre cambios en curso se asume por decisión del comité.`,
+   approveLabel:"Autorizar contención",approveImpact:`Queda autorizada la contención de ${e.code} fuera de ventana, asumiendo el impacto sobre cambios en curso. Operación la ejecuta desde Seguridad; DSS05 la medirá cuando ocurra.`,
    rejectLabel:"Esperar ventana",rejectImpact:`${e.code} sigue expuesto hasta la próxima ventana de emergencia; la exposición adicional queda a nombre del comité.`,
-   approveOps:[{type:"security.contain",payload:{code:e.code}}],rejectOps:[],
+   approveOps:[],rejectOps:[],
    openedAt:e.detectedAt,
    evidence:[`Evento ${e.code}: «${e.kind}», severidad ${e.severity}, detectado el ${fmt(e.detectedAt)} por ${e.source}. ${hours} h sin contención.`,
     `Sin información corporativa involucrada.`,
@@ -227,7 +229,7 @@ export async function loadOperationalData():Promise<OperationalData>{
 // Reevalúa las reglas, hace que los agentes y Nexus redacten lo nuevo, y sincroniza
 // la tabla: crea, actualiza el hecho de las vigentes y retira las que ya no tienen
 // sustento y nadie firmó. Deja traza de cada corrida.
-export type SyncEvent = { kind:typeof schema.agentEvents.$inferInsert["kind"]; actor:string; ruleKey?:string; objectiveCode?:string; summary:string }
+export type SyncEvent = { kind:typeof schema.agentEvents.$inferInsert["kind"]; actor:string; ruleKey?:string; objectiveCode?:string; summary:string; at?:Date }
 
 export async function syncGovernanceSignals(){
  const started=Date.now()
@@ -259,9 +261,9 @@ export async function syncGovernanceSignals(){
  // por minuto y cada negociación consume ~4k. Lo que no entra se redacta en la
  // siguiente evaluación; mientras tanto conserva la plantilla de la regla.
  const AUTHORING_BATCH=Number(process.env.AUTHORING_BATCH??3)
- for(const w of work.filter(w=>!w.prev))events.push({kind:"rule.fired",actor:"REGLA",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey.split(":")[0]} detectó en ${w.n.objectiveCode}: ${short(w.n.fact)}`})
+ for(const w of work.filter(w=>!w.prev))events.push({at:new Date(),kind:"rule.fired",actor:"REGLA",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey.split(":")[0]} detectó en ${w.n.objectiveCode}: ${short(w.n.fact)}`})
  const queue=work.filter(w=>w.needsAuthoring).sort((a,b)=>(a.prev?1:0)-(b.prev?1:0)).slice(0,canAuthor?AUTHORING_BATCH:0)
- for(const w of work.filter(w=>w.needsAuthoring&&!queue.includes(w)))events.push({kind:"authoring.deferred",actor:"NEXUS",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey} queda con la redacción de la regla; se redactará en la siguiente evaluación (tope de ${AUTHORING_BATCH} por corrida).`})
+ for(const w of work.filter(w=>w.needsAuthoring&&!queue.includes(w)))events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey} queda con la redacción de la regla; se redactará en la siguiente evaluación (tope de ${AUTHORING_BATCH} por corrida).`})
  const results=new Map<string,Awaited<ReturnType<typeof authorNegotiation>>>()
  for(const w of queue){
   await (async()=>{
@@ -276,10 +278,10 @@ export async function syncGovernanceSignals(){
    })
    if(authoredText.authoredBy==="model"){
     authored++
-    events.push({kind:"agent.argued",actor:n.initiatorAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.initiatorPosition)})
-    events.push({kind:"agent.argued",actor:n.counterpartAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.counterpartPosition)})
-    events.push({kind:"nexus.synthesized",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:n.outcome==="resolved"?`Consenso dentro del mandato: ${short(authoredText.resolution??"")}`:`Sin consenso posible: ${short(authoredText.escalationReason??"")} → escala al comité.`})
-   }else events.push({kind:"authoring.deferred",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:`No se pudo redactar con el modelo; ${n.ruleKey} usa la plantilla de la regla.`})
+    events.push({at:new Date(),kind:"agent.argued",actor:n.initiatorAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.initiatorPosition)})
+    events.push({at:new Date(),kind:"agent.argued",actor:n.counterpartAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.counterpartPosition)})
+    events.push({at:new Date(),kind:"nexus.synthesized",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:n.outcome==="resolved"?`Consenso dentro del mandato: ${short(authoredText.resolution??"")}`:`Sin consenso posible: ${short(authoredText.escalationReason??"")} → escala al comité.`})
+   }else events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:`No se pudo redactar con el modelo; ${n.ruleKey} usa la plantilla de la regla.`})
    results.set(n.ruleKey,authoredText)
   })()
  }
@@ -304,7 +306,7 @@ export async function syncGovernanceSignals(){
  const liveKeys=new Set(negotiations.map(n=>n.ruleKey))
  const staleRows=existing.filter(n=>!liveKeys.has(n.ruleKey)&&!signed.has(n.id))
  const stale=staleRows.map(n=>n.id)
- for(const n of staleRows)events.push({kind:"negotiation.retired",actor:"NEXUS",ruleKey:n.ruleKey,summary:`El hecho que sostenía ${n.ruleKey} se corrigió: la negociación se retira sin llegar al comité.`})
+ for(const n of staleRows)events.push({at:new Date(),kind:"negotiation.retired",actor:"NEXUS",ruleKey:n.ruleKey,summary:`El hecho que sostenía ${n.ruleKey} se corrigió: la negociación se retira sin llegar al comité.`})
  if(stale.length>0)await db.delete(schema.negotiations).where(inArray(schema.negotiations.id,stale))
 
  for(const n of notices)await db.insert(schema.notices).values(n).onConflictDoUpdate({target:schema.notices.ruleKey,set:{...n}})
@@ -314,7 +316,7 @@ export async function syncGovernanceSignals(){
 
  const summary={negotiations:negotiations.length,escalated:negotiations.filter(n=>n.outcome==="escalated").length,resolved:negotiations.filter(n=>n.outcome==="resolved").length,notices:notices.length,retired:stale.length,authored}
  const [evaluation]=await db.insert(schema.governanceEvaluations).values({...summary,mandate:mandateName,riskAppetite:appetite,authoringModel:canAuthor?activeModel():null,durationMs:Date.now()-started}).returning({id:schema.governanceEvaluations.id})
- events.push({kind:"evaluation.completed",actor:"NEXUS",summary:`Evaluación bajo «${mandateName}» (apetito ${appetite.toFixed(1)}): ${summary.negotiations} discrepancias, ${summary.escalated} escaladas, ${summary.resolved} resueltas, ${summary.retired} retiradas, ${summary.authored} redactadas por modelo · ${Date.now()-started} ms.`})
- if(events.length>0)await db.insert(schema.agentEvents).values(events.map(e=>({...e,evaluationId:evaluation.id})))
+ events.push({at:new Date(),kind:"evaluation.completed",actor:"NEXUS",summary:`Evaluación bajo «${mandateName}» (apetito ${appetite.toFixed(1)}): ${summary.negotiations} discrepancias, ${summary.escalated} escaladas, ${summary.resolved} resueltas, ${summary.retired} retiradas, ${summary.authored} redactadas por modelo · ${Date.now()-started} ms.`})
+ if(events.length>0)await db.insert(schema.agentEvents).values(events.map(e=>({...e,at:e.at??new Date(),evaluationId:evaluation.id})))
  return {...summary,events}
 }
