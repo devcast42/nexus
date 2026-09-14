@@ -15,7 +15,7 @@ import { useOperations } from "./use-operations"
 type Filter="abiertos"|"resueltos"|"todos"
 
 export function IncidentsPanel({incidents,services}:{incidents:IncidentView[];services:ServiceView[]}){
- const {run,busy,error,last}=useOperations()
+ const {run,busy,error,last,activity}=useOperations()
  const [filter,setFilter]=useState<Filter>("abiertos")
  const [severity,setSeverity]=useState<"todas"|Severity>("todas")
  const [service,setService]=useState("todos")
@@ -46,7 +46,7 @@ export function IncidentsPanel({incidents,services}:{incidents:IncidentView[];se
    <SelectField label="" value={service} onChange={setService} options={[{value:"todos",label:"Todos los servicios"},...services.map(s=>({value:s.code,label:s.name}))]}/>
    <Input className="sm:w-48" placeholder="Buscar" value={query} onChange={e=>setQuery(e.target.value)}/>
    <Button onClick={()=>setCreating(true)}><Plus data-icon="inline-start"/>Abrir incidente</Button></div></div>
-   <div className="pt-3"><Feedback error={error} last={last}/></div></CardHeader>
+   <div className="pt-3"><Feedback error={error} last={last} activity={activity}/></div></CardHeader>
    <CardContent className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Código</TableHead><TableHead>Título</TableHead><TableHead>Servicio</TableHead><TableHead>Severidad</TableHead><TableHead>Abierto</TableHead><TableHead>Duración</TableHead><TableHead>SLA</TableHead><TableHead>Recurrente</TableHead></TableRow></TableHeader>
    <TableBody>{rows.length===0?<TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Sin incidentes para este filtro</TableCell></TableRow>:rows.map(i=><TableRow key={i.code} className="cursor-pointer" onClick={()=>setSelectedCode(i.code)}><TableCell className="font-mono text-primary">{i.code}</TableCell><TableCell className="min-w-64 font-medium">{i.title}</TableCell><TableCell className="text-muted-foreground">{i.serviceName}</TableCell><TableCell><SeverityBadge severity={i.severity}/></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{i.openedLabel}</TableCell><TableCell className="font-mono text-xs">{i.durationMinutes===null?<Badge variant="outline">abierto</Badge>:minutesLabel(i.durationMinutes)}</TableCell><TableCell><Yes ok={i.slaMet} yes="cumplido" no="incumplido"/></TableCell><TableCell>{i.recurring?<Badge variant="destructive">sí</Badge>:<span className="text-muted-foreground">no</span>}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 

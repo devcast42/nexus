@@ -290,3 +290,17 @@ export const controlTests = pgTable("control_tests",{
  evidence:text("evidence").notNull(),
  testedBy:text("tested_by").notNull(),
 })
+
+// Bitácora de los agentes: cada paso del motor deja una entrada legible. Es lo que
+// hace visible el trabajo cuando entra información: qué regla saltó, qué argumentó
+// cada agente, qué concluyó Nexus, qué se retiró.
+export const agentEvents = pgTable("agent_events",{
+ id:serial("id").primaryKey(),
+ at:timestamp("at",{withTimezone:true}).notNull().defaultNow(),
+ kind:text("kind").$type<"rule.fired"|"agent.argued"|"nexus.synthesized"|"negotiation.retired"|"authoring.deferred"|"evaluation.completed">().notNull(),
+ actor:text("actor").notNull(),
+ ruleKey:varchar("rule_key",{length:64}),
+ objectiveCode:varchar("objective_code",{length:8}),
+ summary:text("summary").notNull(),
+ evaluationId:integer("evaluation_id"),
+})

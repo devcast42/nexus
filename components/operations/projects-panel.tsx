@@ -14,7 +14,7 @@ const STATUSES=[{value:"En curso",label:"En curso"},{value:"En riesgo",label:"En
 const money=(n:number)=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN",maximumFractionDigits:0}).format(n)
 
 export function ProjectsPanel({projects}:{projects:ProjectView[]}){
- const {run,busy,error,last}=useOperations()
+ const {run,busy,error,last,activity}=useOperations()
  const [selectedCode,setSelectedCode]=useState<string|null>(null)
  const [creating,setCreating]=useState(false)
  const selected=projects.find(p=>p.code===selectedCode)??null
@@ -27,7 +27,7 @@ export function ProjectsPanel({projects}:{projects:ProjectView[]}){
 
  return <div className="flex flex-col gap-4">
   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="text-lg font-semibold">Proyectos y programas</h3><p className="text-sm text-muted-foreground">Presupuesto y cronograma alimentan a APO06, BAI01 y BAI11. Detener uno es una operación que el comité puede firmar.</p></div><Button onClick={()=>setCreating(true)}><Plus data-icon="inline-start"/>Iniciar proyecto</Button></div>
-  <Feedback error={error} last={last}/>
+  <Feedback error={error} last={last} activity={activity}/>
   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{projects.map(p=><Card key={p.code} className={`cursor-pointer transition-all hover:-translate-y-0.5 ${p.status==="Detenido"?"critical-glow":p.status==="En riesgo"?"warning-glow":""}`} onClick={()=>openDetail(p)}><CardHeader><div className="flex items-start justify-between gap-2"><Badge variant="outline" className="font-mono">{p.code}</Badge><Badge variant={statusVariant(p.status)}>{p.status}</Badge></div><CardTitle className="text-base">{p.name}</CardTitle><CardDescription>{p.sponsor}</CardDescription></CardHeader><CardContent className="flex flex-col gap-3 text-sm"><div><div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Presupuesto ejecutado</span><span className={`font-mono ${p.spentPct>100?"text-destructive":""}`}>{p.spentPct}%</span></div><Progress value={Math.min(100,p.spentPct)}/><p className="mt-1 text-xs text-muted-foreground">{money(p.spent)} de {money(p.budget)}</p></div><div className="flex justify-between text-xs"><span className="text-muted-foreground">Fin planificado</span><span>{p.plannedEndLabel}</span></div><div className="flex justify-between text-xs"><span className="text-muted-foreground">Fin proyectado</span><span className={p.delayDays>0?"text-destructive":"text-success"}>{p.forecastEndLabel} ({p.delayDays>0?`+${p.delayDays} d`:`${p.delayDays} d`})</span></div></CardContent></Card>)}</div>
 
   <Sheet open={creating} onOpenChange={o=>!o&&setCreating(false)}><SheetContent className="overflow-y-auto sm:max-w-lg"><SheetHeader><SheetTitle>Iniciar proyecto</SheetTitle><SheetDescription>Queda En curso con la fecha planificada como proyección inicial.</SheetDescription></SheetHeader><div className="flex flex-col gap-4 px-4 pb-6"><TextField label="Nombre" value={fName} onChange={setFName} placeholder="Ej. Ónix — renovación del CRM"/><TextField label="Patrocinador" value={fSponsor} onChange={setFSponsor}/><TextField label="Presupuesto (S/)" type="number" value={fBudget} onChange={setFBudget}/><TextField label="Fin planificado" type="date" value={fEnd} onChange={setFEnd}/><Button disabled={busy||!fName.trim()||!fEnd} onClick={create}>{busy?"Registrando...":"Iniciar proyecto"}</Button></div></SheetContent></Sheet>

@@ -227,9 +227,13 @@ export async function loadOperationalData():Promise<OperationalData>{
 // Reevalúa las reglas, hace que los agentes y Nexus redacten lo nuevo, y sincroniza
 // la tabla: crea, actualiza el hecho de las vigentes y retira las que ya no tienen
 // sustento y nadie firmó. Deja traza de cada corrida.
+export type SyncEvent = { kind:typeof schema.agentEvents.$inferInsert["kind"]; actor:string; ruleKey?:string; objectiveCode?:string; summary:string }
+
 export async function syncGovernanceSignals(){
  const started=Date.now()
  const db=getDb()
+ const events:SyncEvent[]=[]
+ const short=(t:string,n=220)=>t.length>n?t.slice(0,n-1)+"…":t
  const [mandate]=await db.select().from(schema.designProfiles).orderBy(desc(schema.designProfiles.appliedAt)).limit(1)
  const appetite=mandate?.riskAppetite??3.5
  const mandateName=mandate?.name??"Sin mandato aplicado"
@@ -255,7 +259,9 @@ export async function syncGovernanceSignals(){
  // por minuto y cada negociación consume ~4k. Lo que no entra se redacta en la
  // siguiente evaluación; mientras tanto conserva la plantilla de la regla.
  const AUTHORING_BATCH=Number(process.env.AUTHORING_BATCH??3)
+ for(const w of work.filter(w=>!w.prev))events.push({kind:"rule.fired",actor:"REGLA",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey.split(":")[0]} detectó en ${w.n.objectiveCode}: ${short(w.n.fact)}`})
  const queue=work.filter(w=>w.needsAuthoring).sort((a,b)=>(a.prev?1:0)-(b.prev?1:0)).slice(0,canAuthor?AUTHORING_BATCH:0)
+ for(const w of work.filter(w=>w.needsAuthoring&&!queue.includes(w)))events.push({kind:"authoring.deferred",actor:"NEXUS",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey} queda con la redacción de la regla; se redactará en la siguiente evaluación (tope de ${AUTHORING_BATCH} por corrida).`})
  const results=new Map<string,Awaited<ReturnType<typeof authorNegotiation>>>()
  for(const w of queue){
   await (async()=>{
@@ -268,7 +274,12 @@ export async function syncGovernanceSignals(){
     approveOps:n.approveOps,rejectOps:n.rejectOps,
     template:{initiatorPosition:n.initiatorPosition,counterpartPosition:n.counterpartPosition,resolution:n.resolution,escalationReason:n.escalationReason,proposal:n.proposal,approveLabel:n.approveLabel,approveImpact:n.approveImpact,rejectLabel:n.rejectLabel,rejectImpact:n.rejectImpact},
    })
-   if(authoredText.authoredBy==="model")authored++
+   if(authoredText.authoredBy==="model"){
+    authored++
+    events.push({kind:"agent.argued",actor:n.initiatorAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.initiatorPosition)})
+    events.push({kind:"agent.argued",actor:n.counterpartAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.counterpartPosition)})
+    events.push({kind:"nexus.synthesized",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:n.outcome==="resolved"?`Consenso dentro del mandato: ${short(authoredText.resolution??"")}`:`Sin consenso posible: ${short(authoredText.escalationReason??"")} → escala al comité.`})
+   }else events.push({kind:"authoring.deferred",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:`No se pudo redactar con el modelo; ${n.ruleKey} usa la plantilla de la regla.`})
    results.set(n.ruleKey,authoredText)
   })()
  }
@@ -291,7 +302,9 @@ export async function syncGovernanceSignals(){
   }
  }
  const liveKeys=new Set(negotiations.map(n=>n.ruleKey))
- const stale=existing.filter(n=>!liveKeys.has(n.ruleKey)&&!signed.has(n.id)).map(n=>n.id)
+ const staleRows=existing.filter(n=>!liveKeys.has(n.ruleKey)&&!signed.has(n.id))
+ const stale=staleRows.map(n=>n.id)
+ for(const n of staleRows)events.push({kind:"negotiation.retired",actor:"NEXUS",ruleKey:n.ruleKey,summary:`El hecho que sostenía ${n.ruleKey} se corrigió: la negociación se retira sin llegar al comité.`})
  if(stale.length>0)await db.delete(schema.negotiations).where(inArray(schema.negotiations.id,stale))
 
  for(const n of notices)await db.insert(schema.notices).values(n).onConflictDoUpdate({target:schema.notices.ruleKey,set:{...n}})
@@ -300,6 +313,8 @@ export async function syncGovernanceSignals(){
  else await db.delete(schema.notices)
 
  const summary={negotiations:negotiations.length,escalated:negotiations.filter(n=>n.outcome==="escalated").length,resolved:negotiations.filter(n=>n.outcome==="resolved").length,notices:notices.length,retired:stale.length,authored}
- await db.insert(schema.governanceEvaluations).values({...summary,mandate:mandateName,riskAppetite:appetite,authoringModel:canAuthor?activeModel():null,durationMs:Date.now()-started})
- return summary
+ const [evaluation]=await db.insert(schema.governanceEvaluations).values({...summary,mandate:mandateName,riskAppetite:appetite,authoringModel:canAuthor?activeModel():null,durationMs:Date.now()-started}).returning({id:schema.governanceEvaluations.id})
+ events.push({kind:"evaluation.completed",actor:"NEXUS",summary:`Evaluación bajo «${mandateName}» (apetito ${appetite.toFixed(1)}): ${summary.negotiations} discrepancias, ${summary.escalated} escaladas, ${summary.resolved} resueltas, ${summary.retired} retiradas, ${summary.authored} redactadas por modelo · ${Date.now()-started} ms.`})
+ if(events.length>0)await db.insert(schema.agentEvents).values(events.map(e=>({...e,evaluationId:evaluation.id})))
+ return {...summary,events}
 }

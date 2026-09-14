@@ -1,7 +1,7 @@
 import { asc,desc } from "drizzle-orm"
 import { deriveMeasures,measurementCoverage } from "../governance-metrics"
 import { buildOperationsView } from "./operations-view"
-import type { AgentView,AiSystemView,CoverageView,DecisionView,DesignFactorView,DesignProfileView,DomainCode,DomainView,EvaluationView,GovernanceData,MeasureView,NegotiationView,NoticeView,ObjectiveView } from "../types"
+import type { AgentEventView,AgentView,AiSystemView,CoverageView,DecisionView,DesignFactorView,DesignProfileView,DomainCode,DomainView,EvaluationView,GovernanceData,MeasureView,NegotiationView,NoticeView,ObjectiveView } from "../types"
 import { getDb } from "./index"
 import * as schema from "./schema"
 
@@ -19,7 +19,7 @@ function clockTime(date:Date){return date.toLocaleTimeString("es-PE",{hour:"2-di
 
 export async function loadGovernanceData():Promise<GovernanceData>{
  const db=getDb()
- const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows,factorRows,valueRows,weightRows,profileRows,incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations,evaluationRows]=await Promise.all([
+ const [domainRows,objectiveRows,agentRows,negotiationRows,noticeRows,decisionRows,aiRows,factorRows,valueRows,weightRows,profileRows,incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations,evaluationRows,eventRows]=await Promise.all([
   db.select().from(schema.domains).orderBy(asc(schema.domains.code)),
   db.select().from(schema.objectives).orderBy(asc(schema.objectives.code)),
   db.select().from(schema.agents).orderBy(asc(schema.agents.code)),
@@ -44,6 +44,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
   db.select().from(schema.slaMeasurements),
   db.select().from(schema.supplierEvaluations),
   db.select().from(schema.governanceEvaluations).orderBy(desc(schema.governanceEvaluations.ranAt)).limit(1),
+  db.select().from(schema.agentEvents).orderBy(desc(schema.agentEvents.at)).limit(60),
  ])
 
  const order:DomainCode[]=["EDM","APO","BAI","DSS","MEA"]
@@ -104,5 +105,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
  const ev=evaluationRows[0]
  const lastEvaluation:EvaluationView|null=ev?{ranAt:`${ev.ranAt.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(ev.ranAt)}`,mandate:ev.mandate,riskAppetite:ev.riskAppetite,negotiations:ev.negotiations,escalated:ev.escalated,resolved:ev.resolved,retired:ev.retired,notices:ev.notices,authored:ev.authored,authoringModel:ev.authoringModel,durationMs:ev.durationMs}:null
 
- return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile,coverage,operations,lastEvaluation}
+ const activity:AgentEventView[]=eventRows.map(e=>({id:e.id,at:`${e.at.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(e.at)}`,kind:e.kind,actor:e.actor,ruleKey:e.ruleKey,objective:e.objectiveCode,summary:e.summary}))
+
+ return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile,coverage,operations,lastEvaluation,activity}
 }
