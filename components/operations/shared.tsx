@@ -21,7 +21,7 @@ export function Yes({ok,yes="Sí",no="No"}:{ok:boolean|null;yes?:string;no?:stri
  if(ok===null)return <span className="text-muted-foreground">—</span>
  return <span className={ok?"text-success":"text-destructive"}>{ok?yes:no}</span>
 }
-// Solo la confirmación. El detalle de lo que hicieron los agentes vive en Agentes → Actividad.
+// Solo la confirmación. El detalle de lo que hizo Nexus vive en Nexus → Actividad.
 export function Feedback({error,last}:{error:string|null;last:string|null}){
  if(error)return <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
  if(!last)return null

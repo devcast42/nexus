@@ -24,7 +24,7 @@ const tabs=[
 type Tab=typeof tabs[number]["id"]
 
 // Mesa de trabajo operativa. Todo lo que se registra aquí entra por la misma API
-// que usa el generador; el gobierno lo mide y las reglas reaccionan.
+// que usa el generador; el gobierno lo mide y Nexus reacciona.
 export function OperationsView(){
  const {operations,coverage,objectives}=useGovernance()
  const [tab,setTab]=useState<Tab>("incidents")

@@ -24,7 +24,7 @@ export async function decideNegotiation(negotiationId:number,verdict:Verdict){
  const branchOps=verdict==="approved"?negotiation.approveOps:negotiation.rejectOps
  for(const op of branchOps)await applyOperation(op.type,op.payload)
  await db.insert(schema.decisions)
-  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,agent:negotiation.initiatorAgent,verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER})
+  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,lens:negotiation.initiatorLens,verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER})
   .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER,decidedAt:new Date()}})
  await syncGovernanceSignals()
  revalidatePath("/")
@@ -66,7 +66,7 @@ export async function saveAiAssessment(systemId:number,accepted:string[]){
 }
 
 // "Aplicar este diseño" deja de ser decorativo: fija el mandato bajo el que
-// los agentes negocian y priorizan.
+// Nexus negocian y priorizan.
 export async function applyDesignProfile(name:string,inputs:Record<string,number>,riskAppetite:number){
  if(typeof name!=="string"||name.trim().length===0)throw new Error("El diseño necesita un nombre")
  if(inputs===null||typeof inputs!=="object")throw new Error("Configuración inválida")
@@ -77,7 +77,7 @@ export async function applyDesignProfile(name:string,inputs:Record<string,number
  const clean=Object.fromEntries(Object.entries(inputs).filter(([id,value])=>valid.has(id)&&Number.isFinite(value)).map(([id,value])=>[id,Number(value)]))
  if(Object.keys(clean).length===0)throw new Error("La configuración no contiene ningún factor de diseño conocido")
  await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean,riskAppetite:Math.round(riskAppetite*10)/10,appliedBy:COMMITTEE_SIGNER})
- // Un mandato nuevo cambia los umbrales que los agentes aplican: lo que antes era
+ // Un mandato nuevo cambia los umbrales que Nexus aplican: lo que antes era
  // aviso puede pasar a escalar, y al revés.
  await syncGovernanceSignals()
  revalidatePath("/")

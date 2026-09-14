@@ -4,10 +4,10 @@ import { sql } from "drizzle-orm"
 import { getDb } from "../lib/db"
 
 // Borra lo transaccional y todo lo que se deriva de él (negociaciones, avisos, firmas,
-// bitácora de agentes y trazas del motor): sin los hechos que las sostienen no tienen sentido.
+// bitácora de Nexus y trazas del motor): sin los hechos que las sostienen no tienen sentido.
 // Los maestros (servicios, proveedores, controles), los objetivos y los mandatos
 // quedan intactos. Los nombres salen de esta lista literal, no de entrada externa.
-const TRANSACTIONAL = ["agent_events","governance_evaluations","decisions","notices","negotiations","control_tests","supplier_evaluations","sla_measurements","security_events","risks","changes","incidents","projects"] as const
+const TRANSACTIONAL = ["nexus_events","governance_evaluations","decisions","notices","negotiations","control_tests","supplier_evaluations","sla_measurements","security_events","risks","changes","incidents","projects"] as const
 
 async function main(){
   const db = getDb()

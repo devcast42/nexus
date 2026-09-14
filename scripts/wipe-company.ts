@@ -5,10 +5,10 @@ import { getDb } from "../lib/db"
 
 // Deja el sistema como para una organización nueva: borra TODO lo que es de la
 // empresa —operación, señales, firmas, maestros, sistemas de IA, mandatos, línea
-// base e historial— y conserva el marco COBIT (dominios, objetivos, agentes,
+// base e historial— y conserva el marco COBIT (dominios, objetivos, Nexus,
 // factores de diseño). Después, `pnpm db:seed` con SEED_PROFILE=fresh repone el
 // mandato base.
-const COMPANY_TABLES=["agent_events","governance_evaluations","decisions","notices","negotiations",
+const COMPANY_TABLES=["nexus_events","governance_evaluations","decisions","notices","negotiations",
  "control_tests","supplier_evaluations","sla_measurements","security_events","risks","changes","incidents","projects",
  "controls","suppliers","services","ai_systems","design_profiles"] as const
 

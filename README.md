@@ -1,6 +1,6 @@
 # Nexus — AI Governance Command Center
 
-Sistema de gobierno de TI basado en **COBIT 2019** en el que los indicadores no se declaran: se **miden** sobre una capa operativa real, agentes especializados por dominio negocian las discrepancias, y el comité de gobierno firma solo lo que no cabe en el mandato vigente.
+Sistema de gobierno de TI basado en **COBIT 2019** en el que los indicadores no se declaran: se **miden** sobre una capa operativa real. Un único agente, **Nexus**, contrasta cada hecho con el mandato del comité, analiza las discrepancias desde cinco lentes —uno por dominio COBIT— y escala solo lo que no cabe en ese mandato. El comité firma.
 
 Proyecto académico para el curso de Gobierno de TI. Organización ficticia: Corporación Andina S.A.
 
@@ -12,7 +12,7 @@ operación → medición → regla → negociación → decisión → operación
 
 1. Alguien registra un hecho —un incidente, un cambio, un riesgo— en la **mesa de trabajo**, o lo produce el generador de actividad por la misma API.
 2. El gobierno **mide**: la mitad de los 40 objetivos COBIT se deriva de esa evidencia (20 con la actividad generada), cada uno con su tamaño de muestra. Los demás muestran su línea base y se marcan como tal. La propia cobertura de medición es lo que mide MEA01.
-3. Las **reglas** comparan la operación con el mandato: un riesgo por encima del apetito, un cambio sin evidencia, un control inefectivo. Cuando detectan una discrepancia, **cada agente argumenta su postura con un modelo de lenguaje desde la evidencia**, y **Nexus** —el motor, no un agente— formula los términos del consenso si cabe en el mandato, o la propuesta que llega al comité si no. La regla decide el desenlace; el modelo pone la voz.
+3. Las **reglas** comparan la operación con el mandato: un riesgo por encima del apetito, un cambio sin evidencia, un control inefectivo. Cuando detectan una discrepancia, **Nexus la delibera con un modelo de lenguaje**: argumenta la postura de cada lente en tensión —por ejemplo, riesgo contra dirección— con los hechos, y concluye: los términos del consenso si cabe en el mandato, o la propuesta que llega al comité si no. La regla decide el desenlace; el modelo pone la voz.
 4. El comité **firma** una rama, y la firma ejecuta una operación: detener el proyecto, aceptar el riesgo, adjuntar la evidencia.
 5. La medición cambia porque la operación cambió, y el **copiloto** lo explica citando los hechos.
 
@@ -30,10 +30,10 @@ operación → medición → regla → negociación → decisión → operación
 
 | Vista | Qué hace |
 |---|---|
-| **Command Center** | Salud de los 5 dominios y los 40 objetivos (medido vs. línea base), decisiones pendientes con las dos posiciones de los agentes y el principio COBIT que arbitra, registro de decisiones |
+| **Command Center** | Salud de los 5 dominios y los 40 objetivos (medido vs. línea base), decisiones pendientes con el análisis de Nexus desde dos lentes y el principio COBIT que arbitra, registro de decisiones |
 | **Operación** | Mesa de trabajo: incidentes, cambios, riesgos, proyectos, seguridad, controles, servicios y proveedores. Lista, filtros, detalle y acciones; cada pantalla dice a qué objetivo alimenta |
-| **Agentes** | Cinco agentes con mandato propio. Su estado y actividad se derivan de lo que cada uno levantó. Las negociaciones muestran las posiciones que cada agente **argumentó con un modelo desde la evidencia**, y la síntesis de Nexus. Panel del motor con su última corrida |
-| **Simulador** | Los 10 factores de diseño de COBIT 2019 (DF1–DF10, 64 valores) recalculan la prioridad de los 40 objetivos. "Aplicar" fija el mandato bajo el que operan los agentes |
+| **Nexus** | El agente: su última corrida, sus cinco lentes (un mandato por dominio, con actividad derivada de lo que levantó cada uno), las discrepancias que deliberó con las dos posturas argumentadas y su conclusión, y su bitácora paso a paso |
+| **Simulador** | Los 10 factores de diseño de COBIT 2019 (DF1–DF10, 64 valores) recalculan la prioridad de los 40 objetivos. "Aplicar" fija el mandato bajo el que opera Nexus |
 | **Copiloto** | Responde solo desde una instantánea del estado leída en el servidor; distingue puntaje medido de línea base y dice cuándo el sistema no registra algo |
 | **Gobierno de IA** | Registro de sistemas de IA de la organización con riesgo, controles recomendados y aceptados |
 
@@ -106,7 +106,8 @@ lib/
   db/queries.ts           carga todo y deriva salud, cobertura y modelos de vista
   operations.ts           única puerta de escritura operativa, con validación
   governance-metrics.ts   cómo se mide cada objetivo y sobre cuánta evidencia
-  governance-rules.ts     reglas que producen negociaciones y avisos
+  governance-rules.ts     reglas que detectan discrepancias y avisos
+  nexus-deliberation.ts   Nexus argumenta cada lente y concluye, con el modelo
   health.ts               una sola regla de salud para servidor y cliente
   cobit-design.ts         factores DF1–DF10 y la matriz de pesos
   copilot-context.ts      la instantánea que se le entrega al modelo
@@ -127,8 +128,8 @@ En [`docs/DEMO.md`](docs/DEMO.md) hay un guion escena por escena para grabar un 
 - **Los pesos de los factores de diseño son una calibración propia de este proyecto**, no las tablas del COBIT 2019 Design Toolkit de ISACA, que son material licenciado. La estructura del cálculo sí sigue el modelo de COBIT —suma ponderada y normalización a importancia relativa— y los pesos viven en la tabla `design_factor_weights` para poder sustituirlos por los oficiales sin tocar el motor.
 - **El generador produce actividad plausible, no real.** Sigue siendo simulación, pero simulación *de la operación por la API*, no siembra del gobierno. Integrar una fuente real (Jira, GitHub, ServiceNow) sería reemplazar el generador sin tocar nada más.
 - **No hay autenticación.** `decided_by` es un valor por defecto. Mientras el registro de decisiones sea la evidencia de gobierno, saber quién firmó es lo que le da valor; es el paso siguiente si el proyecto sigue.
-- **Los agentes argumentan, no vigilan.** Las reglas deterministas detectan cada discrepancia y deciden si escala; el modelo redacta las posiciones de cada agente y la síntesis de Nexus a partir de los hechos, con la postura que la regla asigna. Los agentes no perciben por su cuenta ni se hablan entre sí; no hay bucle autónomo. La frase honesta: *las reglas detectan, los agentes argumentan, Nexus aplica el mandato, el comité decide*. Sin modelo disponible, todo funciona con las plantillas de la regla y así se marca.
-- **El plan gratuito de Groq limita la redacción** a unas 8.000 tokens por minuto, ~2 negociaciones. Por eso Nexus redacta hasta 3 por evaluación (`AUTHORING_BATCH`) y deja el resto en plantilla para la siguiente corrida; cada operación, firma o cambio de mandato vuelve a evaluar.
+- **Hay un agente, no una red.** Nexus es el único agente; los cinco lentes son sus criterios de análisis, no actores. Las reglas deterministas detectan cada discrepancia y deciden si escala; Nexus la delibera con el modelo —argumenta cada lente con los hechos, con la postura que la regla asigna, y concluye—. Nexus no percibe por su cuenta: reacciona a lo que se registra. La frase honesta: *las reglas detectan, Nexus delibera, el comité decide*. Sin modelo disponible, todo funciona con las plantillas de la regla y así se marca.
+- **El plan gratuito de Groq limita la deliberación** a unas 8.000 tokens por minuto, ~4 discrepancias. Por eso Nexus delibera hasta 3 por evaluación (`AUTHORING_BATCH`) y deja el resto en plantilla para la siguiente corrida; cada operación, firma o cambio de mandato vuelve a evaluar.
 
 ## Stack
 

@@ -7,7 +7,7 @@ import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
 import { defaultDesignInputs,designFactors as seedDesignFactors } from "../cobit-design"
 import { controls as seedControls,services as seedServices,suppliers as seedSuppliers } from "../operational-master"
-import { agents as seedAgents,aiSystems as seedAiSystems,domains as seedDomains,objectives as seedObjectives } from "../mock-data"
+import { lenses as seedLenses,aiSystems as seedAiSystems,domains as seedDomains,objectives as seedObjectives } from "../mock-data"
 import * as schema from "./schema"
 
 const url=process.env.DATABASE_URL
@@ -38,13 +38,13 @@ async function main(){
   .onConflictDoUpdate({target:schema.domains.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),trend:sqlExcluded("trend"),targetMaturity:sqlExcluded("target_maturity")}})
  console.log(`✓ ${seedDomains.length} dominios`)
 
- await db.insert(schema.objectives).values(seedObjectives.map(o=>({code:o.code,name:o.name,domainCode:o.domain,baseScore:PROFILE==="demo"?o.score:null,agent:o.agent,history:PROFILE==="demo"?o.history:[]})))
-  .onConflictDoUpdate({target:schema.objectives.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),agent:sqlExcluded("agent"),history:sqlExcluded("history")}})
+ await db.insert(schema.objectives).values(seedObjectives.map(o=>({code:o.code,name:o.name,domainCode:o.domain,baseScore:PROFILE==="demo"?o.score:null,lens:o.lens,history:PROFILE==="demo"?o.history:[]})))
+  .onConflictDoUpdate({target:schema.objectives.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),lens:sqlExcluded("lens"),history:sqlExcluded("history")}})
  console.log(`✓ ${seedObjectives.length} objetivos COBIT`)
 
- await db.insert(schema.agents).values(seedAgents.map(a=>({code:a.domain,name:a.name,mandate:a.mandate})))
-  .onConflictDoUpdate({target:schema.agents.code,set:{name:sqlExcluded("name"),mandate:sqlExcluded("mandate")}})
- console.log(`✓ ${seedAgents.length} agentes`)
+ await db.insert(schema.lenses).values(seedLenses.map(l=>({code:l.domain,name:l.name,mandate:l.mandate})))
+  .onConflictDoUpdate({target:schema.lenses.code,set:{name:sqlExcluded("name"),mandate:sqlExcluded("mandate")}})
+ console.log(`✓ ${seedLenses.length} lentes de Nexus`)
 
  // Negociaciones y avisos NO se siembran: los producen las reglas de gobierno
  // (lib/governance-rules.ts) evaluando la capa operativa.

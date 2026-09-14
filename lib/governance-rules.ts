@@ -1,15 +1,15 @@
 import { createHash } from "node:crypto"
 import { desc,inArray,notInArray } from "drizzle-orm"
-import { PROMPT_VERSION,authorNegotiation,modelAvailable,type Persona } from "./agent-authoring"
+import { PROMPT_VERSION,deliberate,modelAvailable,type Lens } from "./nexus-deliberation"
 import { activeModel } from "./copilot-provider"
 import { getDb } from "./db"
 import * as schema from "./db/schema"
 import { residualOf,type OperationalData } from "./governance-metrics"
 
 // Reglas de gobierno: leen la capa operativa y el mandato, y producen las
-// negociaciones y avisos. Nada de esto se siembra. Una negociación existe porque
-// hay un hecho operativo que la sostiene, y desaparece cuando el hecho se corrige,
-// salvo que el comité ya la haya firmado: entonces queda como registro.
+// discrepancias y avisos que Nexus analiza. Nada de esto se siembra. Una negociación
+// existe porque hay un hecho operativo que la sostiene, y desaparece cuando el hecho
+// se corrige, salvo que el comité ya la haya firmado: entonces queda como registro.
 
 type Op = { type:string; payload:Record<string,unknown> }
 type Severity = "critical"|"warning"|"info"
@@ -17,20 +17,20 @@ type Domain = "EDM"|"APO"|"BAI"|"DSS"|"MEA"
 
 export type NegotiationCandidate = {
  ruleKey:string; objectiveCode:string; domainCode:Domain; severity:Severity; fact:string
- initiatorAgent:Domain; initiatorPosition:string; counterpartAgent:Domain; counterpartPosition:string
+ initiatorLens:Domain; initiatorPosition:string; counterpartLens:Domain; counterpartPosition:string
  principleCode:string; outcome:"resolved"|"escalated"
  resolution:string|null; escalationReason:string|null; proposal:string|null
  approveLabel:string|null; approveImpact:string|null; rejectLabel:string|null; rejectImpact:string|null
  approveOps:Op[]; rejectOps:Op[]; openedAt:Date
- // Hoja de hechos que reciben los agentes para argumentar. Solo datos.
+ // Hoja de hechos con la que Nexus delibera. Solo datos.
  evidence:string
 }
-export type NoticeCandidate = { ruleKey:string; objectiveCode:string; domainCode:Domain; severity:Severity; agent:string; fact:string; raisedAt:Date }
+export type NoticeCandidate = { ruleKey:string; objectiveCode:string; domainCode:Domain; severity:Severity; lens:Domain; fact:string; raisedAt:Date }
 
 const DAY=24*60*60_000
 const fmt=(d:Date)=>d.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:"America/Lima"})
 const domainOf=(objective:string)=>objective.slice(0,3) as Domain
-const agentName:Record<Domain,string>={EDM:"Centinela Estratégico",APO:"Navegante de Riesgo",BAI:"Arquitecto de Cambio",DSS:"Guardián Operativo",MEA:"Auditor Continuo"}
+const lensName:Record<Domain,string>={EDM:"Centinela Estratégico",APO:"Navegante de Riesgo",BAI:"Arquitecto de Cambio",DSS:"Guardián Operativo",MEA:"Auditor Continuo"}
 
 export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=new Date()){
  const negotiations:NegotiationCandidate[]=[]
@@ -42,8 +42,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
  for(const risk of ops.risks.filter(r=>r.status==="Abierto")){
   const residual=residualOf(risk)
   if(residual<=riskAppetite){
-   if(residual>=riskAppetite-0.5)notices.push({ruleKey:`risk-near-appetite:${risk.code}`,objectiveCode:"EDM03",domainCode:"EDM",severity:"info",agent:"Centinela EDM",
-    fact:`El riesgo ${risk.code} «${risk.title}» está en ${residual.toFixed(1)}, a menos de 0,5 del apetito ${riskAppetite.toFixed(1)}. El agente lo vigila sin proponer acción.`,raisedAt:risk.raisedAt})
+   if(residual>=riskAppetite-0.5)notices.push({ruleKey:`risk-near-appetite:${risk.code}`,objectiveCode:"EDM03",domainCode:"EDM",severity:"info",lens:"EDM",
+    fact:`El riesgo ${risk.code} «${risk.title}» está en ${residual.toFixed(1)}, a menos de 0,5 del apetito ${riskAppetite.toFixed(1)}. Nexus lo vigila sin proponer acción.`,raisedAt:risk.raisedAt})
    continue
   }
   const project=risk.projectCode?projectOf.get(risk.projectCode):undefined
@@ -52,8 +52,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
    ruleKey:`risk-over-appetite:${risk.code}`,objectiveCode:"APO12",domainCode:"APO",
    severity:residual>=riskAppetite+1?"critical":"warning",
    fact:`El riesgo residual de «${risk.title}» está en ${residual.toFixed(1)}, sobre el apetito ${riskAppetite.toFixed(1)} fijado en el mandato. ${risk.mitigationsDone} de ${risk.mitigationsPlanned} mitigaciones ejecutadas.`,
-   initiatorAgent:"APO",initiatorPosition:project?`Detener ${projectName} hasta ejecutar las mitigaciones pendientes.`:"Suspender la actividad expuesta hasta cerrar las mitigaciones pendientes.",
-   counterpartAgent:project?"EDM":"BAI",counterpartPosition:project?`Sostener ${projectName}: es una iniciativa aprobada por el comité con ${Math.round((project!.spent/Math.max(1,project!.budget))*100)}% del presupuesto ejecutado.`:"Mantener la operación: las mitigaciones están planificadas y en curso.",
+   initiatorLens:"APO",initiatorPosition:project?`Detener ${projectName} hasta ejecutar las mitigaciones pendientes.`:"Suspender la actividad expuesta hasta cerrar las mitigaciones pendientes.",
+   counterpartLens:project?"EDM":"BAI",counterpartPosition:project?`Sostener ${projectName}: es una iniciativa aprobada por el comité con ${Math.round((project!.spent/Math.max(1,project!.budget))*100)}% del presupuesto ejecutado.`:"Mantener la operación: las mitigaciones están planificadas y en curso.",
    principleCode:"EDM03",outcome:"escalated",resolution:null,
    escalationReason:`Ninguna posición cabe en el mandato: continuar opera por encima del apetito ${riskAppetite.toFixed(1)} que fijó el comité, y detener revierte una prioridad que el comité aprobó.`,
    proposal:project?`Detener ${projectName} hasta que el propietario del riesgo ejecute las ${risk.mitigationsPlanned-risk.mitigationsDone} mitigaciones pendientes.`:"Suspender la actividad expuesta hasta cerrar las mitigaciones pendientes.",
@@ -76,8 +76,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   negotiations.push({
    ruleKey:`change-without-evidence:${change.code}`,objectiveCode:"BAI06",domainCode:"BAI",severity:change.kind==="Emergencia"?"warning":"critical",
    fact:`El cambio ${change.code} «${change.title}» (${change.kind.toLowerCase()}) está en producción desde el ${fmt(change.deployedAt!)} sin evidencia de aprobación registrada.`,
-   initiatorAgent:"MEA",initiatorPosition:`Revertir ${change.code}: sin evidencia completa el control de cambios queda sin efecto.`,
-   counterpartAgent:"BAI",counterpartPosition:"El cambio es estable en producción; revertirlo introduce un riesgo operativo mayor que el de la evidencia faltante.",
+   initiatorLens:"MEA",initiatorPosition:`Revertir ${change.code}: sin evidencia completa el control de cambios queda sin efecto.`,
+   counterpartLens:"BAI",counterpartPosition:"El cambio es estable en producción; revertirlo introduce un riesgo operativo mayor que el de la evidencia faltante.",
    principleCode:"BAI06",outcome:"escalated",resolution:null,
    escalationReason:"BAI06 exige evidencia previa al despliegue, pero aplicarlo ahora significa revertir un cambio estable. Autorizar la excepción le corresponde al comité.",
    proposal:`Exigir evidencia retroactiva a ${change.requestedBy} en 48 horas, manteniendo ${change.code} en producción.`,
@@ -100,15 +100,15 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   const test=latestTest.get(control.code)
   if(!test){continue}
   const overdueDays=Math.floor((now.getTime()-test.testedAt.getTime())/DAY)
-  if(overdueDays>control.frequencyDays*1.5)notices.push({ruleKey:`control-overdue:${control.code}`,objectiveCode:control.objectiveCode,domainCode:domainOf(control.objectiveCode),severity:"warning",agent:"Auditor MEA",
-   fact:`El control ${control.code} «${control.name}» lleva ${overdueDays} días sin prueba; su frecuencia es de ${control.frequencyDays}. El agente lo reporta antes de proponer acción.`,raisedAt:test.testedAt})
+  if(overdueDays>control.frequencyDays*1.5)notices.push({ruleKey:`control-overdue:${control.code}`,objectiveCode:control.objectiveCode,domainCode:domainOf(control.objectiveCode),severity:"warning",lens:"MEA",
+   fact:`El control ${control.code} «${control.name}» lleva ${overdueDays} días sin prueba; su frecuencia es de ${control.frequencyDays}. Nexus lo reporta antes de proponer acción.`,raisedAt:test.testedAt})
   if(test.result!=="Inefectivo")continue
   const owner=domainOf(control.objectiveCode)
   negotiations.push({
    ruleKey:`control-ineffective:${control.code}`,objectiveCode:control.objectiveCode,domainCode:owner,severity:"warning",
    fact:`La última prueba del control ${control.code} «${control.name}» (${fmt(test.testedAt)}) resultó inefectiva: ${test.evidence.toLowerCase()}.`,
-   initiatorAgent:"MEA",initiatorPosition:`Suspender la dependencia del control ${control.code} hasta remediarlo: hoy no protege a ${control.objectiveCode}.`,
-   counterpartAgent:owner==="MEA"?"DSS":owner,counterpartPosition:`El proceso sigue operando; ${control.owner} tiene la remediación en curso y suspenderlo interrumpe el servicio.`,
+   initiatorLens:"MEA",initiatorPosition:`Suspender la dependencia del control ${control.code} hasta remediarlo: hoy no protege a ${control.objectiveCode}.`,
+   counterpartLens:owner==="MEA"?"DSS":owner,counterpartPosition:`El proceso sigue operando; ${control.owner} tiene la remediación en curso y suspenderlo interrumpe el servicio.`,
    principleCode:"MEA02",outcome:"escalated",resolution:null,
    escalationReason:"Un control inefectivo sobre un objetivo activo no se resuelve entre agentes: exige un compromiso del propietario que solo el comité puede reclamar.",
    proposal:`Exigir a ${control.owner} un plan de remediación con nueva prueba en 30 días.`,
@@ -129,8 +129,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   negotiations.push({
    ruleKey:`recurring-incidents:${service.code}`,objectiveCode:"DSS03",domainCode:"DSS",severity:"info",
    fact:`${recurring.length} incidentes recurrentes en ${service.name} en los últimos 30 días.`,
-   initiatorAgent:"DSS",initiatorPosition:`Abrir un problema y bloquear cambios en ${service.name} hasta el análisis de causa raíz.`,
-   counterpartAgent:"BAI",counterpartPosition:"No bloquear: hay despliegues comprometidos en la ventana de este mes.",
+   initiatorLens:"DSS",initiatorPosition:`Abrir un problema y bloquear cambios en ${service.name} hasta el análisis de causa raíz.`,
+   counterpartLens:"BAI",counterpartPosition:"No bloquear: hay despliegues comprometidos en la ventana de este mes.",
    principleCode:"DSS03",outcome:"resolved",
    resolution:"Problema abierto con análisis de causa raíz en 10 días; los cambios continúan con validación adicional. Cabe dentro del mandato, así que no escala.",
    escalationReason:null,proposal:null,approveLabel:null,approveImpact:null,rejectLabel:null,rejectImpact:null,approveOps:[],rejectOps:[],
@@ -150,8 +150,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   negotiations.push({
    ruleKey:`sla-breach:${code}`,objectiveCode:"APO09",domainCode:"APO",severity:"info",
    fact:`${service.name} midió ${m.measuredAvailability.toFixed(2)}% de disponibilidad en el último periodo, bajo el ${service.targetAvailability}% comprometido (${m.breaches} incumplimientos).`,
-   initiatorAgent:"DSS",initiatorPosition:`Renegociar el acuerdo de ${service.name} a un objetivo alcanzable.`,
-   counterpartAgent:"APO",counterpartPosition:"Mantener el acuerdo: el compromiso con el negocio no se rebaja por un mes malo.",
+   initiatorLens:"DSS",initiatorPosition:`Renegociar el acuerdo de ${service.name} a un objetivo alcanzable.`,
+   counterpartLens:"APO",counterpartPosition:"Mantener el acuerdo: el compromiso con el negocio no se rebaja por un mes malo.",
    principleCode:"APO09",outcome:"resolved",
    resolution:`Acuerdo intacto; plan de mejora con el propietario (${service.owner}) revisado en el próximo periodo. Cabe dentro del mandato.`,
    escalationReason:null,proposal:null,approveLabel:null,approveImpact:null,rejectLabel:null,rejectImpact:null,approveOps:[],rejectOps:[],
@@ -170,8 +170,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   negotiations.push({
    ruleKey:`security-data-exposure:${e.code}`,objectiveCode:"APO13",domainCode:"APO",severity:e.severity==="Crítica"||e.severity==="Alta"?"critical":"warning",
    fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) involucra información corporativa y lleva ${hours} h sin contención registrada.`,
-   initiatorAgent:"APO",initiatorPosition:`Activar el protocolo de brecha: contención inmediata, evaluación de la información expuesta y revisión de obligaciones de notificación.`,
-   counterpartAgent:"DSS",counterpartPosition:`Contener y evaluar primero: activar el protocolo antes de conocer el alcance dispara notificaciones externas sobre un evento de severidad ${e.severity.toLowerCase()} que puede no ameritarlas.`,
+   initiatorLens:"APO",initiatorPosition:`Activar el protocolo de brecha: contención inmediata, evaluación de la información expuesta y revisión de obligaciones de notificación.`,
+   counterpartLens:"DSS",counterpartPosition:`Contener y evaluar primero: activar el protocolo antes de conocer el alcance dispara notificaciones externas sobre un evento de severidad ${e.severity.toLowerCase()} que puede no ameritarlas.`,
    principleCode:"APO13",outcome:"escalated",resolution:null,
    escalationReason:"Activar un protocolo de brecha compromete a la organización frente a terceros y reguladores; no activarlo con información expuesta deja el riesgo sin dueño. Ninguna de las dos posturas la puede tomar un agente.",
    proposal:`Ordenar la contención inmediata de ${e.code} y abrir la evaluación de alcance bajo el protocolo de brecha.`,
@@ -192,8 +192,8 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
   negotiations.push({
    ruleKey:`security-uncontained-critical:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:"critical",
    fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) lleva ${hours} h sin contención registrada.`,
-   initiatorAgent:"DSS",initiatorPosition:`Aislar el activo afectado ahora aunque interrumpa el servicio: ${hours} h sin contener un evento ${e.severity.toLowerCase()} es inaceptable.`,
-   counterpartAgent:"BAI",counterpartPosition:"Aislar sin ventana rompe cambios en curso y compromisos con el negocio; la contención debe entrar por una ventana de emergencia coordinada.",
+   initiatorLens:"DSS",initiatorPosition:`Aislar el activo afectado ahora aunque interrumpa el servicio: ${hours} h sin contener un evento ${e.severity.toLowerCase()} es inaceptable.`,
+   counterpartLens:"BAI",counterpartPosition:"Aislar sin ventana rompe cambios en curso y compromisos con el negocio; la contención debe entrar por una ventana de emergencia coordinada.",
    principleCode:"DSS05",outcome:"escalated",resolution:null,
    escalationReason:"Interrumpir un servicio para contener, o aceptar horas adicionales de exposición, son costos que el mandato no asigna a ningún agente.",
    proposal:`Autorizar la contención inmediata de ${e.code} fuera de ventana.`,
@@ -209,7 +209,7 @@ export function evaluateRules(ops:OperationalData,riskAppetite:number,now:Date=n
 
  // N · Eventos medios o bajos sin contener por más de 48 h: aviso, no decisión
  for(const e of ops.securityEvents.filter(e=>!e.containedAt&&!e.dataInvolved&&e.severity!=="Crítica"&&e.severity!=="Alta"&&now.getTime()-e.detectedAt.getTime()>2*DAY)){
-  notices.push({ruleKey:`security-uncontained:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:"warning",agent:"Guardián DSS",
+  notices.push({ruleKey:`security-uncontained:${e.code}`,objectiveCode:"DSS05",domainCode:"DSS",severity:"warning",lens:"DSS",
    fact:`El evento ${e.code} «${e.kind}» (${e.severity.toLowerCase()}) lleva ${Math.floor((now.getTime()-e.detectedAt.getTime())/DAY)} días sin contención registrada.`,raisedAt:e.detectedAt})
  }
 
@@ -226,10 +226,10 @@ export async function loadOperationalData():Promise<OperationalData>{
  return {incidents,changes,risks,projects,securityEvents,controlTests,services,controls,suppliers,slaMeasurements,supplierEvaluations}
 }
 
-// Reevalúa las reglas, hace que los agentes y Nexus redacten lo nuevo, y sincroniza
+// Reevalúa las reglas, hace que Nexus delibere lo nuevo, y sincroniza
 // la tabla: crea, actualiza el hecho de las vigentes y retira las que ya no tienen
 // sustento y nadie firmó. Deja traza de cada corrida.
-export type SyncEvent = { kind:typeof schema.agentEvents.$inferInsert["kind"]; actor:string; ruleKey?:string; objectiveCode?:string; summary:string; at?:Date }
+export type SyncEvent = { kind:typeof schema.nexusEvents.$inferInsert["kind"]; actor:string; ruleKey?:string; objectiveCode?:string; summary:string; at?:Date }
 
 export async function syncGovernanceSignals(){
  const started=Date.now()
@@ -239,8 +239,8 @@ export async function syncGovernanceSignals(){
  const [mandate]=await db.select().from(schema.designProfiles).orderBy(desc(schema.designProfiles.appliedAt)).limit(1)
  const appetite=mandate?.riskAppetite??3.5
  const mandateName=mandate?.name??"Sin mandato aplicado"
- const [ops,agentRows,objectiveRows]=await Promise.all([loadOperationalData(),db.select().from(schema.agents),db.select({code:schema.objectives.code,name:schema.objectives.name}).from(schema.objectives)])
- const personaOf=new Map<string,Persona>(agentRows.map(a=>[a.code,{code:a.code,name:a.name,mandate:a.mandate}]))
+ const [ops,lensRows,objectiveRows]=await Promise.all([loadOperationalData(),db.select().from(schema.lenses),db.select({code:schema.objectives.code,name:schema.objectives.name}).from(schema.objectives)])
+ const lensOf=new Map<string,Lens>(lensRows.map(l=>[l.code,{code:l.code,name:l.name,mandate:l.mandate}]))
  const objectiveName=new Map(objectiveRows.map(o=>[o.code,o.name]))
  const {negotiations,notices}=evaluateRules(ops,appetite)
 
@@ -250,7 +250,7 @@ export async function syncGovernanceSignals(){
  const canAuthor=modelAvailable()
  let authored=0
 
- // Solo se redacta lo nuevo o lo que cambió de hechos; el resto conserva su texto.
+ // Solo se delibera lo nuevo o lo que cambió de hechos; el resto conserva su texto.
  const work=negotiations.map(n=>{
   const prev=existingByKey.get(n.ruleKey)
   const factsHash=createHash("md5").update(`${PROMPT_VERSION}|${n.evidence}|${n.outcome}|${appetite}`).digest("hex").slice(0,32)
@@ -258,30 +258,30 @@ export async function syncGovernanceSignals(){
   return {n,prev,factsHash,needsAuthoring:needsAuthoring&&!(prev&&signed.has(prev.id))}
  })
  // Secuencial y con tope por corrida: el plan gratuito de Groq permite ~8k tokens
- // por minuto y cada negociación consume ~4k. Lo que no entra se redacta en la
+ // por minuto y cada deliberación consume ~2k. Lo que no entra se redacta en la
  // siguiente evaluación; mientras tanto conserva la plantilla de la regla.
  const AUTHORING_BATCH=Number(process.env.AUTHORING_BATCH??3)
  for(const w of work.filter(w=>!w.prev))events.push({at:new Date(),kind:"rule.fired",actor:"REGLA",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey.split(":")[0]} detectó en ${w.n.objectiveCode}: ${short(w.n.fact)}`})
  const queue=work.filter(w=>w.needsAuthoring).sort((a,b)=>(a.prev?1:0)-(b.prev?1:0)).slice(0,canAuthor?AUTHORING_BATCH:0)
- for(const w of work.filter(w=>w.needsAuthoring&&!queue.includes(w)))events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey} queda con la redacción de la regla; se redactará en la siguiente evaluación (tope de ${AUTHORING_BATCH} por corrida).`})
- const results=new Map<string,Awaited<ReturnType<typeof authorNegotiation>>>()
+ for(const w of work.filter(w=>w.needsAuthoring&&!queue.includes(w)))events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:w.n.ruleKey,objectiveCode:w.n.objectiveCode,summary:`${w.n.ruleKey} queda con la plantilla de la regla; Nexus la deliberará en la siguiente evaluación (tope de ${AUTHORING_BATCH} por corrida).`})
+ const results=new Map<string,Awaited<ReturnType<typeof deliberate>>>()
  for(const w of queue){
   await (async()=>{
    const {n}=w
-   const authoredText=await authorNegotiation({
+   const authoredText=await deliberate({
     ruleKey:n.ruleKey,outcome:n.outcome,objectiveCode:n.objectiveCode,principleCode:n.principleCode,principleName:objectiveName.get(n.principleCode)??"",
     evidence:n.evidence,riskAppetite:appetite,mandateName,
-    initiator:personaOf.get(n.initiatorAgent)??{code:n.initiatorAgent,name:agentName[n.initiatorAgent],mandate:""},
-    counterpart:personaOf.get(n.counterpartAgent)??{code:n.counterpartAgent,name:agentName[n.counterpartAgent],mandate:""},
+    initiator:lensOf.get(n.initiatorLens)??{code:n.initiatorLens,name:lensName[n.initiatorLens],mandate:""},
+    counterpart:lensOf.get(n.counterpartLens)??{code:n.counterpartLens,name:lensName[n.counterpartLens],mandate:""},
     approveOps:n.approveOps,rejectOps:n.rejectOps,
     template:{initiatorPosition:n.initiatorPosition,counterpartPosition:n.counterpartPosition,resolution:n.resolution,escalationReason:n.escalationReason,proposal:n.proposal,approveLabel:n.approveLabel,approveImpact:n.approveImpact,rejectLabel:n.rejectLabel,rejectImpact:n.rejectImpact},
    })
    if(authoredText.authoredBy==="model"){
     authored++
-    events.push({at:new Date(),kind:"agent.argued",actor:n.initiatorAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.initiatorPosition)})
-    events.push({at:new Date(),kind:"agent.argued",actor:n.counterpartAgent,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.counterpartPosition)})
-    events.push({at:new Date(),kind:"nexus.synthesized",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:n.outcome==="resolved"?`Consenso dentro del mandato: ${short(authoredText.resolution??"")}`:`Sin consenso posible: ${short(authoredText.escalationReason??"")} → escala al comité.`})
-   }else events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:`No se pudo redactar con el modelo; ${n.ruleKey} usa la plantilla de la regla.`})
+    events.push({at:new Date(),kind:"nexus.argued",actor:n.initiatorLens,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.initiatorPosition)})
+    events.push({at:new Date(),kind:"nexus.argued",actor:n.counterpartLens,ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:short(authoredText.counterpartPosition)})
+    events.push({at:new Date(),kind:"nexus.concluded",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:n.outcome==="resolved"?`Consenso dentro del mandato: ${short(authoredText.resolution??"")}`:`Sin consenso posible: ${short(authoredText.escalationReason??"")} → escala al comité.`})
+   }else events.push({at:new Date(),kind:"authoring.deferred",actor:"NEXUS",ruleKey:n.ruleKey,objectiveCode:n.objectiveCode,summary:`No se pudo deliberar con el modelo; ${n.ruleKey} usa la plantilla de la regla.`})
    results.set(n.ruleKey,authoredText)
   })()
  }
@@ -306,7 +306,7 @@ export async function syncGovernanceSignals(){
  const liveKeys=new Set(negotiations.map(n=>n.ruleKey))
  const staleRows=existing.filter(n=>!liveKeys.has(n.ruleKey)&&!signed.has(n.id))
  const stale=staleRows.map(n=>n.id)
- for(const n of staleRows)events.push({at:new Date(),kind:"negotiation.retired",actor:"NEXUS",ruleKey:n.ruleKey,summary:`El hecho que sostenía ${n.ruleKey} se corrigió: la negociación se retira sin llegar al comité.`})
+ for(const n of staleRows)events.push({at:new Date(),kind:"negotiation.retired",actor:"NEXUS",ruleKey:n.ruleKey,summary:`El hecho que sostenía ${n.ruleKey} se corrigió: la discrepancia se retira sin llegar al comité.`})
  if(stale.length>0)await db.delete(schema.negotiations).where(inArray(schema.negotiations.id,stale))
 
  for(const n of notices)await db.insert(schema.notices).values(n).onConflictDoUpdate({target:schema.notices.ruleKey,set:{...n}})
@@ -316,7 +316,7 @@ export async function syncGovernanceSignals(){
 
  const summary={negotiations:negotiations.length,escalated:negotiations.filter(n=>n.outcome==="escalated").length,resolved:negotiations.filter(n=>n.outcome==="resolved").length,notices:notices.length,retired:stale.length,authored}
  const [evaluation]=await db.insert(schema.governanceEvaluations).values({...summary,mandate:mandateName,riskAppetite:appetite,authoringModel:canAuthor?activeModel():null,durationMs:Date.now()-started}).returning({id:schema.governanceEvaluations.id})
- events.push({at:new Date(),kind:"evaluation.completed",actor:"NEXUS",summary:`Evaluación bajo «${mandateName}» (apetito ${appetite.toFixed(1)}): ${summary.negotiations} discrepancias, ${summary.escalated} escaladas, ${summary.resolved} resueltas, ${summary.retired} retiradas, ${summary.authored} redactadas por modelo · ${Date.now()-started} ms.`})
- if(events.length>0)await db.insert(schema.agentEvents).values(events.map(e=>({...e,at:e.at??new Date(),evaluationId:evaluation.id})))
+ events.push({at:new Date(),kind:"evaluation.completed",actor:"NEXUS",summary:`Evaluación bajo «${mandateName}» (apetito ${appetite.toFixed(1)}): ${summary.negotiations} discrepancias, ${summary.escalated} escaladas, ${summary.resolved} resueltas, ${summary.retired} retiradas, ${summary.authored} deliberadas con modelo · ${Date.now()-started} ms.`})
+ if(events.length>0)await db.insert(schema.nexusEvents).values(events.map(e=>({...e,at:e.at??new Date(),evaluationId:evaluation.id})))
  return {...summary,events}
 }
