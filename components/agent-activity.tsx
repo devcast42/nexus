@@ -1,6 +1,8 @@
 "use client"
+import { useState } from "react"
 import { Bot,Cpu,Radar,ScrollText,Trash2,Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import type { AgentEventView } from "@/lib/types"
 
 const agentName:Record<string,string>={EDM:"Centinela Estratégico",APO:"Navegante de Riesgo",BAI:"Arquitecto de Cambio",DSS:"Guardián Operativo",MEA:"Auditor Continuo",NEXUS:"Nexus",REGLA:"Regla"}
@@ -15,7 +17,13 @@ const style:Record<AgentEventView["kind"],{icon:typeof Bot;label:string;tone:str
 
 // Línea de tiempo de lo que hicieron el motor y los agentes. Se usa justo después
 // de registrar algo en la mesa de trabajo y como feed permanente en Agentes.
-export function AgentActivity({events,empty="Sin actividad registrada.",compact=false}:{events:AgentEventView[];empty?:string;compact?:boolean}){
+// `limit` muestra solo los últimos pasos sustantivos (detecciones, argumentos,
+// conclusiones); las posposiciones y los resúmenes de corrida quedan tras "ver todo".
+export function AgentActivity({events,empty="Sin actividad registrada.",compact=false,limit}:{events:AgentEventView[];empty?:string;compact?:boolean;limit?:number}){
+ const [expanded,setExpanded]=useState(false)
  if(events.length===0)return <p className="text-sm text-muted-foreground">{empty}</p>
- return <ol className="flex flex-col gap-2">{events.map(e=>{const s=style[e.kind];const Icon=s.icon;return <li key={e.id} className={`flex gap-3 rounded-lg border bg-background/50 ${compact?"p-2.5":"p-3"}`}><Icon className={`mt-0.5 size-4 shrink-0 ${s.tone}`}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"><span className="font-medium">{agentName[e.actor]??e.actor}</span><span className={s.tone}>{s.label}</span>{e.objective&&<Badge variant="outline" className="font-mono">{e.objective}</Badge>}{e.ruleKey&&!compact&&<span className="font-mono text-[10px] text-muted-foreground">{e.ruleKey}</span>}<span className="ml-auto text-muted-foreground">{e.at}</span></div><p className={`mt-1 leading-relaxed ${compact?"text-xs":"text-sm"} ${e.kind==="agent.argued"?"italic":""}`}>{e.kind==="agent.argued"?`“${e.summary}”`:e.summary}</p></div></li>})}</ol>
+ const substantive=events.filter(e=>e.kind!=="authoring.deferred"&&e.kind!=="evaluation.completed")
+ const shown=limit&&!expanded?substantive.slice(0,limit):events
+ const hidden=events.length-shown.length
+ return <div className="flex flex-col gap-2"><ol className="flex flex-col gap-2">{shown.map(e=>{const s=style[e.kind];const Icon=s.icon;return <li key={e.id} className={`flex gap-3 rounded-lg border bg-background/50 ${compact?"p-2.5":"p-3"}`}><Icon className={`mt-0.5 size-4 shrink-0 ${s.tone}`}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"><span className="font-medium">{agentName[e.actor]??e.actor}</span><span className={s.tone}>{s.label}</span>{e.objective&&<Badge variant="outline" className="font-mono">{e.objective}</Badge>}{e.ruleKey&&!compact&&<span className="font-mono text-[10px] text-muted-foreground">{e.ruleKey}</span>}<span className="ml-auto text-muted-foreground">{e.at}</span></div><p className={`mt-1 leading-relaxed ${compact?"text-xs":"text-sm"} ${e.kind==="agent.argued"?"italic":""}`}>{e.kind==="agent.argued"?`“${e.summary}”`:e.summary}</p></div></li>})}</ol>{limit&&hidden>0&&<Button size="sm" variant="ghost" className="self-start" onClick={()=>setExpanded(true)}>Ver todo · {hidden} pasos más, incluidas posposiciones y resúmenes de corrida</Button>}{limit&&expanded&&<Button size="sm" variant="ghost" className="self-start" onClick={()=>setExpanded(false)}>Mostrar solo los últimos {limit}</Button>}</div>
 }
