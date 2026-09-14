@@ -10,7 +10,7 @@ export type ObjectiveView = { code:string; name:string; domain:DomainCode; baseS
 export type CoverageView = { covered:number; total:number; score:number }
 // Todo derivado de las negociaciones que el agente inició: nada sembrado.
 export type AgentView = { code:string; name:string; mandate:string; status:"Alerta"|"Analizando"|"Activo"; action:string; watched:number; activity:number[]; escalated:number; resolved:number; signed:number }
-export type AgentEventView = { id:number; at:string; kind:"rule.fired"|"agent.argued"|"nexus.synthesized"|"negotiation.retired"|"authoring.deferred"|"evaluation.completed"; actor:string; ruleKey:string|null; objective:string|null; summary:string }
+export type AgentEventView = { id:number; evaluationId:number|null; at:string; kind:"rule.fired"|"agent.argued"|"nexus.synthesized"|"negotiation.retired"|"authoring.deferred"|"evaluation.completed"; actor:string; ruleKey:string|null; objective:string|null; summary:string }
 export type EvaluationView = { ranAt:string; mandate:string; riskAppetite:number; negotiations:number; escalated:number; resolved:number; retired:number; notices:number; authored:number; authoringModel:string|null; durationMs:number }
 export type NegotiationView = {
  id:number; objective:string; domain:DomainCode; severity:"critical"|"warning"|"info"

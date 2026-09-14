@@ -27,7 +27,7 @@ export function useOperations(){
    const all=(result.signals?.events??[]).filter(e=>e.kind!=="evaluation.completed")
    // Primero lo que se refiere a lo recién registrado; luego el resto de la corrida
    const ordered=[...all.filter(touches),...all.filter(e=>!touches(e))]
-   setActivity(ordered.map((e,i)=>({id:i,at:"ahora",kind:e.kind,actor:e.actor,ruleKey:e.ruleKey??null,objective:e.objectiveCode??null,summary:e.summary})))
+   setActivity(ordered.map((e,i)=>({id:i,evaluationId:null,at:"ahora",kind:e.kind,actor:e.actor,ruleKey:e.ruleKey??null,objective:e.objectiveCode??null,summary:e.summary})))
    router.refresh()
    return true
   }catch(e){setError(e instanceof Error?e.message:"No se pudo registrar la operación");return false}

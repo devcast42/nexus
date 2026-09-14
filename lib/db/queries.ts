@@ -44,7 +44,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
   db.select().from(schema.slaMeasurements),
   db.select().from(schema.supplierEvaluations),
   db.select().from(schema.governanceEvaluations).orderBy(desc(schema.governanceEvaluations.ranAt)).limit(1),
-  db.select().from(schema.agentEvents).orderBy(desc(schema.agentEvents.at)).limit(60),
+  db.select().from(schema.agentEvents).orderBy(desc(schema.agentEvents.at)).limit(400),
  ])
 
  const order:DomainCode[]=["EDM","APO","BAI","DSS","MEA"]
@@ -105,7 +105,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
  const ev=evaluationRows[0]
  const lastEvaluation:EvaluationView|null=ev?{ranAt:`${ev.ranAt.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(ev.ranAt)}`,mandate:ev.mandate,riskAppetite:ev.riskAppetite,negotiations:ev.negotiations,escalated:ev.escalated,resolved:ev.resolved,retired:ev.retired,notices:ev.notices,authored:ev.authored,authoringModel:ev.authoringModel,durationMs:ev.durationMs}:null
 
- const activity:AgentEventView[]=eventRows.map(e=>({id:e.id,at:`${e.at.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(e.at)}`,kind:e.kind,actor:e.actor,ruleKey:e.ruleKey,objective:e.objectiveCode,summary:e.summary}))
+ const activity:AgentEventView[]=eventRows.map(e=>({id:e.id,evaluationId:e.evaluationId,at:`${e.at.toLocaleDateString("es-PE",{day:"2-digit",month:"short",timeZone:TZ})} · ${clockTime(e.at)}`,kind:e.kind,actor:e.actor,ruleKey:e.ruleKey,objective:e.objectiveCode,summary:e.summary}))
 
  return {domains,objectives,agents,negotiations,notices,decisions,aiSystems,designFactors,activeProfile,coverage,operations,lastEvaluation,activity}
 }
