@@ -6,7 +6,8 @@ import { isNull,sql } from "drizzle-orm"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
 import { defaultDesignInputs,designFactors as seedDesignFactors } from "../cobit-design"
-import { agents as seedAgents,aiSystems as seedAiSystems,domains as seedDomains,negotiations as seedNegotiations,notices as seedNotices,objectives as seedObjectives } from "../mock-data"
+import { controls as seedControls,services as seedServices,suppliers as seedSuppliers } from "../operational-master"
+import { agents as seedAgents,aiSystems as seedAiSystems,domains as seedDomains,objectives as seedObjectives } from "../mock-data"
 import * as schema from "./schema"
 
 const url=process.env.DATABASE_URL
@@ -36,13 +37,9 @@ async function main(){
   .onConflictDoUpdate({target:schema.agents.code,set:{name:sqlExcluded("name"),status:sqlExcluded("status"),action:sqlExcluded("action"),watched:sqlExcluded("watched"),activity:sqlExcluded("activity")}})
  console.log(`✓ ${seedAgents.length} agentes`)
 
- await db.insert(schema.negotiations).values(seedNegotiations.map(n=>({id:n.id,objectiveCode:n.objective,domainCode:n.domain,severity:n.severity,fact:n.fact,initiatorAgent:n.initiator,initiatorPosition:n.initiatorPosition,counterpartAgent:n.counterpart,counterpartPosition:n.counterpartPosition,principleCode:n.principle,outcome:n.outcome,resolution:n.resolution??null,escalationReason:n.escalationReason??null,proposal:n.proposal??null,approveLabel:n.approve?.label??null,approveImpact:n.approve?.impact??null,approveDelta:n.approve?.delta??null,rejectLabel:n.reject?.label??null,rejectImpact:n.reject?.impact??null,rejectDelta:n.reject?.delta??null,openedAt:raisedAt(n.time)})))
-  .onConflictDoUpdate({target:schema.negotiations.id,set:{fact:sqlExcluded("fact"),initiatorPosition:sqlExcluded("initiator_position"),counterpartPosition:sqlExcluded("counterpart_position"),principleCode:sqlExcluded("principle_code"),outcome:sqlExcluded("outcome"),resolution:sqlExcluded("resolution"),escalationReason:sqlExcluded("escalation_reason"),proposal:sqlExcluded("proposal"),approveLabel:sqlExcluded("approve_label"),approveImpact:sqlExcluded("approve_impact"),approveDelta:sqlExcluded("approve_delta"),rejectLabel:sqlExcluded("reject_label"),rejectImpact:sqlExcluded("reject_impact"),rejectDelta:sqlExcluded("reject_delta")}})
- console.log(`✓ ${seedNegotiations.length} negociaciones (${seedNegotiations.filter(n=>n.outcome==="escalated").length} escaladas al comité, ${seedNegotiations.filter(n=>n.outcome==="resolved").length} resueltas entre agentes)`)
-
- await db.insert(schema.notices).values(seedNotices.map(n=>({id:n.id,objectiveCode:n.objective,domainCode:n.domain,severity:n.severity,agent:n.agent,fact:n.fact,raisedAt:raisedAt(n.time)})))
-  .onConflictDoUpdate({target:schema.notices.id,set:{fact:sqlExcluded("fact"),agent:sqlExcluded("agent")}})
- console.log(`✓ ${seedNotices.length} avisos informativos`)
+ // Negociaciones y avisos NO se siembran: los producen las reglas de gobierno
+ // (lib/governance-rules.ts) evaluando la capa operativa.
+ console.log("· negociaciones y avisos: generados por reglas sobre la operación, no sembrados")
 
  await db.insert(schema.designFactors).values(seedDesignFactors.map((f,i)=>({code:f.code,name:f.name,description:f.description,input:f.input,displayOrder:i})))
   .onConflictDoUpdate({target:schema.designFactors.code,set:{name:sqlExcluded("name"),description:sqlExcluded("description"),input:sqlExcluded("input"),displayOrder:sqlExcluded("display_order")}})
@@ -61,6 +58,15 @@ async function main(){
  await db.insert(schema.aiSystems).values(seedAiSystems.map(s=>({name:s.name,area:s.area,description:s.desc,risk:s.risk,status:s.status,controls:s.controls,acceptedControls:s.status==="Aprobado"?s.controls:[],assessedAt:s.status==="Aprobado"?assessedAt:null})))
   .onConflictDoUpdate({target:schema.aiSystems.name,set:{area:sqlExcluded("area"),description:sqlExcluded("description"),risk:sqlExcluded("risk"),status:sqlExcluded("status"),controls:sqlExcluded("controls"),acceptedControls:sqlExcluded("accepted_controls"),assessedAt:sqlExcluded("assessed_at")},setWhere:isNull(schema.aiSystems.assessedAt)})
  console.log(`✓ ${seedAiSystems.length} sistemas de IA`)
+ // Maestros de la capa operativa. Lo transaccional NO se siembra: entra por la API.
+ await db.insert(schema.services).values(seedServices)
+  .onConflictDoUpdate({target:schema.services.code,set:{name:sqlExcluded("name"),criticality:sqlExcluded("criticality"),owner:sqlExcluded("owner"),targetAvailability:sqlExcluded("target_availability")}})
+ await db.insert(schema.suppliers).values(seedSuppliers.map(s=>({code:s.code,name:s.name,criticality:s.criticality,service:s.service,contractEnd:new Date(Date.now()+s.contractMonths*30*24*60*60_000)})))
+  .onConflictDoUpdate({target:schema.suppliers.code,set:{name:sqlExcluded("name"),criticality:sqlExcluded("criticality"),service:sqlExcluded("service")}})
+ await db.insert(schema.controls).values(seedControls.map(c=>({code:c.code,name:c.name,objectiveCode:c.objective,owner:c.owner,frequencyDays:c.frequencyDays})))
+  .onConflictDoUpdate({target:schema.controls.code,set:{name:sqlExcluded("name"),objectiveCode:sqlExcluded("objective_code"),owner:sqlExcluded("owner"),frequencyDays:sqlExcluded("frequency_days")}})
+ console.log(`✓ maestros operativos: ${seedServices.length} servicios · ${seedSuppliers.length} proveedores · ${seedControls.length} controles`)
+ console.log("  (incidentes, cambios, riesgos, eventos y pruebas NO se siembran: entran por la API operativa)")
 }
 
 main().then(()=>{console.log("\nSemilla completa.");process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})

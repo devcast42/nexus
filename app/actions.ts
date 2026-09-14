@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { getDb } from "@/lib/db"
 import * as schema from "@/lib/db/schema"
+import { syncGovernanceSignals } from "@/lib/governance-rules"
+import { applyOperation } from "@/lib/operations"
 import type { Verdict } from "@/lib/types"
 
 export async function decideNegotiation(negotiationId:number,verdict:Verdict){
@@ -15,16 +17,30 @@ export async function decideNegotiation(negotiationId:number,verdict:Verdict){
  const label=verdict==="approved"?negotiation.approveLabel:negotiation.rejectLabel
  const impact=verdict==="approved"?negotiation.approveImpact:negotiation.rejectImpact
  const delta=verdict==="approved"?negotiation.approveDelta:negotiation.rejectDelta
- if(label===null||impact===null||delta===null)throw new Error("La negociación no define esta rama de decisión")
+ if(label===null||impact===null)throw new Error("La negociación no define esta rama de decisión")
+ // La firma ejecuta la rama en la capa operativa: el efecto es lo que la operación
+ // cambia, no un delta. Con puntajes medidos, un delta fijo no significaría nada.
+ const branchOps=verdict==="approved"?negotiation.approveOps:negotiation.rejectOps
+ for(const op of branchOps)await applyOperation(op.type,op.payload)
  await db.insert(schema.decisions)
-  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,agent:negotiation.initiatorAgent,verdict,label,impact,delta})
-  .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta,decidedAt:new Date()}})
+  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,agent:negotiation.initiatorAgent,verdict,label,impact,delta:delta??0})
+  .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta:delta??0,decidedAt:new Date()}})
+ await syncGovernanceSignals()
  revalidatePath("/")
 }
 
 export async function undoDecision(negotiationId:number){
  if(!Number.isInteger(negotiationId))throw new Error("Identificador de negociación inválido")
- await getDb().delete(schema.decisions).where(eq(schema.decisions.negotiationId,negotiationId))
+ const db=getDb()
+ const [decision]=await db.select().from(schema.decisions).where(eq(schema.decisions.negotiationId,negotiationId))
+ if(!decision)return
+ const [negotiation]=await db.select().from(schema.negotiations).where(eq(schema.negotiations.id,negotiationId))
+ // Una firma que ya ejecutó operaciones en la capa operativa no se deshace: el
+ // proyecto ya está detenido, el riesgo ya está aceptado. Se revierte con otra decisión.
+ const executed=decision.verdict==="approved"?negotiation?.approveOps??[]:negotiation?.rejectOps??[]
+ if(executed.length>0)throw new Error("Esta decisión ejecutó operaciones y no se puede deshacer; revertir su efecto requiere una nueva decisión del comité.")
+ await db.delete(schema.decisions).where(eq(schema.decisions.negotiationId,negotiationId))
+ await syncGovernanceSignals()
  revalidatePath("/")
 }
 
@@ -50,14 +66,18 @@ export async function saveAiAssessment(systemId:number,accepted:string[]){
 
 // "Aplicar este diseño" deja de ser decorativo: fija el mandato bajo el que
 // los agentes negocian y priorizan.
-export async function applyDesignProfile(name:string,inputs:Record<string,number>){
+export async function applyDesignProfile(name:string,inputs:Record<string,number>,riskAppetite:number){
  if(typeof name!=="string"||name.trim().length===0)throw new Error("El diseño necesita un nombre")
  if(inputs===null||typeof inputs!=="object")throw new Error("Configuración inválida")
+ if(!Number.isFinite(riskAppetite)||riskAppetite<0||riskAppetite>5)throw new Error("El apetito de riesgo debe estar entre 0 y 5")
  const db=getDb()
  const valueRows=await db.select({id:schema.designFactorValues.id}).from(schema.designFactorValues)
  const valid=new Set(valueRows.map(v=>v.id))
  const clean=Object.fromEntries(Object.entries(inputs).filter(([id,value])=>valid.has(id)&&Number.isFinite(value)).map(([id,value])=>[id,Number(value)]))
  if(Object.keys(clean).length===0)throw new Error("La configuración no contiene ningún factor de diseño conocido")
- await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean})
+ await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean,riskAppetite:Math.round(riskAppetite*10)/10})
+ // Un mandato nuevo cambia los umbrales que los agentes aplican: lo que antes era
+ // aviso puede pasar a escalar, y al revés.
+ await syncGovernanceSignals()
  revalidatePath("/")
 }
