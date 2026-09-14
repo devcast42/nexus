@@ -26,7 +26,7 @@ type Tab=typeof tabs[number]["id"]
 // Mesa de trabajo operativa. Todo lo que se registra aquí entra por la misma API
 // que usa el generador; el gobierno lo mide y las reglas reaccionan.
 export function OperationsView(){
- const {operations,coverage}=useGovernance()
+ const {operations,coverage,objectives}=useGovernance()
  const [tab,setTab]=useState<Tab>("incidents")
  const counts:Record<Tab,number>={
   incidents:operations.incidents.filter(i=>!i.resolvedAt).length,
@@ -45,7 +45,7 @@ export function OperationsView(){
   {tab==="risks"&&<RisksPanel risks={operations.risks} projects={operations.projects} riskAppetite={operations.riskAppetite}/>}
   {tab==="projects"&&<ProjectsPanel projects={operations.projects}/>}
   {tab==="security"&&<SecurityPanel events={operations.securityEvents}/>}
-  {tab==="controls"&&<ControlsPanel controls={operations.controls}/>}
+  {tab==="controls"&&<ControlsPanel controls={operations.controls} objectives={objectives}/>}
   {tab==="services"&&<ServicesPanel services={operations.services} suppliers={operations.suppliers}/>}
  </div>
 }

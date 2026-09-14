@@ -43,19 +43,31 @@ Requisitos: Node 20+, `pnpm`, una base Postgres (el proyecto usa [Neon](https://
 
 ```bash
 pnpm install
-cp .env.example .env        # y pega tu DATABASE_URL
-pnpm db:push                # crea las 22 tablas
-pnpm db:seed                # objetivos COBIT, agentes, factores de diseño, maestros operativos
+cp .env.example .env        # DATABASE_URL, nombre de la organización, firmante
+pnpm db:push                # crea las tablas
 pnpm dev
 ```
 
-Con la app corriendo, genera 90 días de actividad operativa **por la API**:
+Luego elige cómo arrancar:
+
+**Organización nueva** — solo el marco COBIT, sin datos de empresa. Los objetivos muestran *sin dato* hasta que haya evidencia; el catálogo (servicios, proveedores, controles) se da de alta desde *Operación*:
+
+```bash
+pnpm company:fresh
+```
+
+**Organización de ejemplo** — Corporación Andina con línea base declarada, catálogo y 90 días de actividad generada **por la API**:
+
+```bash
+pnpm db:seed
+```
+
 
 ```bash
 OPERATIONS_URL=http://localhost:3000/api/operations pnpm ops:generate
 ```
 
-Es reproducible: misma semilla, misma historia (`ACTIVITY_SEED`, `ACTIVITY_DAYS`). Para volver a empezar sin tocar maestros ni mandatos:
+Es reproducible: misma semilla, misma historia (`ACTIVITY_SEED`, `ACTIVITY_DAYS`). Para vaciar la operación sin tocar catálogo ni mandatos:
 
 ```bash
 pnpm ops:reset
@@ -79,7 +91,9 @@ El mismo anclaje a los datos alimenta a ambos: cambiar de proveedor es una varia
 | Script | Qué hace |
 |---|---|
 | `db:push` | Aplica el esquema de [`lib/db/schema.ts`](lib/db/schema.ts) |
-| `db:seed` | Siembra referencia y maestros. Idempotente: no pisa decisiones, evaluaciones ni mandatos |
+| `db:seed` | Marco COBIT + organización de ejemplo. Con `SEED_PROFILE=fresh`, solo el marco |
+| `company:fresh` | Vacía todo lo que es de la empresa y deja el marco: estado de organización nueva |
+| `company:wipe` | Solo la primera mitad de lo anterior |
 | `db:studio` | Explorador de tablas de Drizzle |
 | `ops:generate` | Actividad operativa por HTTP contra `OPERATIONS_URL` |
 | `ops:reset` | Vacía lo transaccional y las señales derivadas |
@@ -103,6 +117,10 @@ app/api/
 components/operations/    la mesa de trabajo, un panel por entidad
 scripts/                  generador de actividad y reseteo
 ```
+
+## Demostración
+
+En [`docs/DEMO.md`](docs/DEMO.md) hay un guion escena por escena para grabar un video partiendo de una organización vacía: qué hacer, qué se ve, qué decir, y qué revisar si algo no sale.
 
 ## Lo que conviene saber antes de sustentarlo
 

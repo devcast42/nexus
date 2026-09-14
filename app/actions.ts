@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db"
 import * as schema from "@/lib/db/schema"
 import { syncGovernanceSignals } from "@/lib/governance-rules"
 import { applyOperation } from "@/lib/operations"
+import { COMMITTEE_SIGNER } from "@/lib/org"
 import type { Verdict } from "@/lib/types"
 
 export async function decideNegotiation(negotiationId:number,verdict:Verdict){
@@ -23,8 +24,8 @@ export async function decideNegotiation(negotiationId:number,verdict:Verdict){
  const branchOps=verdict==="approved"?negotiation.approveOps:negotiation.rejectOps
  for(const op of branchOps)await applyOperation(op.type,op.payload)
  await db.insert(schema.decisions)
-  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,agent:negotiation.initiatorAgent,verdict,label,impact,delta:delta??0})
-  .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta:delta??0,decidedAt:new Date()}})
+  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,agent:negotiation.initiatorAgent,verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER})
+  .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER,decidedAt:new Date()}})
  await syncGovernanceSignals()
  revalidatePath("/")
 }
@@ -75,7 +76,7 @@ export async function applyDesignProfile(name:string,inputs:Record<string,number
  const valid=new Set(valueRows.map(v=>v.id))
  const clean=Object.fromEntries(Object.entries(inputs).filter(([id,value])=>valid.has(id)&&Number.isFinite(value)).map(([id,value])=>[id,Number(value)]))
  if(Object.keys(clean).length===0)throw new Error("La configuración no contiene ningún factor de diseño conocido")
- await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean,riskAppetite:Math.round(riskAppetite*10)/10})
+ await db.insert(schema.designProfiles).values({name:name.trim().slice(0,80),inputs:clean,riskAppetite:Math.round(riskAppetite*10)/10,appliedBy:COMMITTEE_SIGNER})
  // Un mandato nuevo cambia los umbrales que los agentes aplican: lo que antes era
  // aviso puede pasar a escalar, y al revés.
  await syncGovernanceSignals()

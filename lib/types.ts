@@ -2,11 +2,12 @@ export type DomainCode = "EDM" | "APO" | "BAI" | "DSS" | "MEA"
 export type Verdict = "approved" | "rejected"
 export type Outcome = { label:string; impact:string; delta:number }
 
-export type DomainView = { code:DomainCode; name:string; baseScore:number; trend:number; targetMaturity:number }
+export type DomainView = { code:DomainCode; name:string; trend:number|null; targetMaturity:number }
 export type MeasureView = { score:number; metric:string; evidence:string; sample:number }
 // `score` es la salud efectiva: la medida sobre evidencia operativa cuando existe,
 // la línea base sembrada cuando el objetivo aún no se mide. `measure` dice cuál fue.
-export type ObjectiveView = { code:string; name:string; domain:DomainCode; baseScore:number; score:number; measure:MeasureView|null; agent:string; history:number[] }
+// `score` nulo = sin medición y sin línea base declarada: no hay dato, y se muestra así.
+export type ObjectiveView = { code:string; name:string; domain:DomainCode; baseScore:number|null; score:number|null; measure:MeasureView|null; agent:string; history:number[] }
 export type CoverageView = { covered:number; total:number; score:number }
 // Todo derivado de las negociaciones que el agente inició: nada sembrado.
 export type AgentView = { code:string; name:string; mandate:string; status:"Alerta"|"Analizando"|"Activo"; action:string; watched:number; activity:number[]; escalated:number; resolved:number; signed:number }

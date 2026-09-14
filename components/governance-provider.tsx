@@ -14,8 +14,8 @@ type Governance = GovernanceData & {
  deltaFor:(objective:string)=>number
  domainDelta:(domain:DomainCode)=>number
  // Salud con decisiones aplicadas, y cuánto de ella se debe a las decisiones
- healthOf:(objective:ObjectiveView)=>number
- domainHealthOf:(domain:DomainCode)=>{score:number;fromDecisions:number}
+ healthOf:(objective:ObjectiveView)=>number|null
+ domainHealthOf:(domain:DomainCode)=>{score:number|null;fromDecisions:number}
 }
 const GovernanceContext = createContext<Governance|null>(null)
 
@@ -39,7 +39,7 @@ export function GovernanceProvider({data,children}:{data:GovernanceData;children
    deltaFor:objective=>decisionDelta(data.decisions,objective),
    domainDelta:domain=>data.decisions.filter(d=>d.domain===domain).reduce((sum,d)=>sum+d.delta,0),
    healthOf:objective=>objectiveHealth(objective,data.decisions),
-   domainHealthOf:domain=>{const score=domainHealth(domain,data.objectives,data.decisions);return {score,fromDecisions:score-domainHealth(domain,data.objectives,[])}},
+   domainHealthOf:domain=>{const score=domainHealth(domain,data.objectives,data.decisions);const base=domainHealth(domain,data.objectives,[]);return {score,fromDecisions:score!==null&&base!==null?score-base:0}},
   }
  },[data,saving,decide,undo])
 

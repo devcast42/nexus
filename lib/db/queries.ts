@@ -48,7 +48,7 @@ export async function loadGovernanceData():Promise<GovernanceData>{
  ])
 
  const order:DomainCode[]=["EDM","APO","BAI","DSS","MEA"]
- const domains:DomainView[]=domainRows.map(d=>({code:d.code as DomainCode,name:d.name,baseScore:d.baseScore,trend:d.trend,targetMaturity:d.targetMaturity}))
+ const domains:DomainView[]=domainRows.map(d=>({code:d.code as DomainCode,name:d.name,trend:d.trend,targetMaturity:d.targetMaturity}))
   .sort((a,b)=>order.indexOf(a.code)-order.indexOf(b.code))
 
  const profile=profileRows[0]
@@ -58,7 +58,8 @@ export async function loadGovernanceData():Promise<GovernanceData>{
  const measureOf=new Map<string,MeasureView>(measured.map(m=>[m.objective,{score:m.score,metric:m.metric,evidence:m.evidence,sample:m.sample}]))
  // MEA01 se mide con la propia cobertura: cuánto del sistema de gobierno está medido
  const coverageRaw=measurementCoverage(measured,objectiveRows.length)
- measureOf.set("MEA01",{score:coverageRaw.score,metric:"Cobertura de medición del sistema de gobierno",evidence:`${coverageRaw.covered} de ${coverageRaw.total} objetivos se derivan de evidencia operativa`,sample:coverageRaw.covered})
+ // MEA01 mide la cobertura de medición; sin ninguna medición, tampoco él tiene dato
+ if(measured.length>0)measureOf.set("MEA01",{score:coverageRaw.score,metric:"Cobertura de medición del sistema de gobierno",evidence:`${coverageRaw.covered} de ${coverageRaw.total} objetivos se derivan de evidencia operativa`,sample:coverageRaw.covered})
  const coverage:CoverageView={covered:measureOf.size,total:objectiveRows.length,score:Math.round((measureOf.size/objectiveRows.length)*100)}
  const objectives:ObjectiveView[]=objectiveRows.map(o=>{const measure=measureOf.get(o.code)??null;return {code:o.code,name:o.name,domain:o.domainCode as DomainCode,baseScore:o.baseScore,score:measure?measure.score:o.baseScore,measure,agent:o.agent,history:o.history}})
  const agentName=new Map(agentRows.map(a=>[a.code,a.name]))

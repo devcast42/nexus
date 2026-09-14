@@ -3,8 +3,10 @@ import { boolean,integer,jsonb,pgTable,primaryKey,real,serial,text,timestamp,var
 export const domains = pgTable("domains",{
  code:varchar("code",{length:3}).primaryKey(),
  name:text("name").notNull(),
- baseScore:integer("base_score").notNull(),
- trend:real("trend").notNull(),
+ // Nulos en una organización nueva: no hay historia que declarar. Se rellenan
+ // solo en la semilla de demostración.
+ baseScore:integer("base_score"),
+ trend:real("trend"),
  targetMaturity:real("target_maturity").notNull().default(4),
 })
 
@@ -12,7 +14,8 @@ export const objectives = pgTable("objectives",{
  code:varchar("code",{length:8}).primaryKey(),
  name:text("name").notNull(),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
- baseScore:integer("base_score").notNull(),
+ // Nulo hasta que exista evidencia operativa o la organización declare una línea base
+ baseScore:integer("base_score"),
  agent:text("agent").notNull(),
  history:jsonb("history").$type<number[]>().notNull(),
 })
@@ -103,7 +106,7 @@ export const decisions = pgTable("decisions",{
  label:text("label").notNull(),
  impact:text("impact").notNull(),
  delta:integer("delta").notNull(),
- decidedBy:text("decided_by").notNull().default("Lina Castillo"),
+ decidedBy:text("decided_by").notNull().default("Comité de gobierno"),
  decidedAt:timestamp("decided_at",{withTimezone:true}).notNull().defaultNow(),
 })
 
@@ -153,7 +156,7 @@ export const designProfiles = pgTable("design_profiles",{
  // Umbral de riesgo residual (0-5) que el comité tolera. Es lo que EDM03 mide y
  // lo que los agentes citan cuando escalan: no es una constante del código.
  riskAppetite:real("risk_appetite").notNull().default(3.5),
- appliedBy:text("applied_by").notNull().default("Lina Castillo"),
+ appliedBy:text("applied_by").notNull().default("Comité de gobierno"),
  appliedAt:timestamp("applied_at",{withTimezone:true}).notNull().defaultNow(),
 })
 

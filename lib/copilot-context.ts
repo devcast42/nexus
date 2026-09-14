@@ -1,4 +1,5 @@
 import { decisionDelta,domainHealth,objectiveHealth,priorityOf } from "./health"
+import { ORG_NAME } from "./org"
 import type { GovernanceData } from "./types"
 
 // Instantánea compacta del estado de gobierno que se le entrega al modelo.
@@ -6,15 +7,15 @@ import type { GovernanceData } from "./types"
 export function buildGovernanceSnapshot(data:GovernanceData){
  const deltaFor=(objective:string)=>decisionDelta(data.decisions,objective)
 
- const domains=data.domains.map(d=>`${d.code} (${d.name}): salud ${domainHealth(d.code,data.objectives,data.decisions)}/100 (promedio de sus objetivos), tendencia ${d.trend}%, capacidad objetivo ${d.targetMaturity}/5`).join("\n")
+ const domains=data.domains.map(d=>{const h=domainHealth(d.code,data.objectives,data.decisions);return `${d.code} (${d.name}): salud ${h===null?"sin dato (ningún objetivo medido)":`${h}/100 (promedio de sus objetivos con dato)`}${d.trend!==null?`, tendencia ${d.trend}%`:""}, capacidad objetivo ${d.targetMaturity}/5`}).join("\n")
 
  // Cada objetivo dice si su salud es una MEDICIÓN sobre evidencia operativa o una
  // línea base sin medir. El copiloto debe distinguirlos al responder.
  const objectives=data.objectives.map(o=>{
   const score=objectiveHealth(o,data.decisions)
   const moved=deltaFor(o.code)
-  const basis=o.measure?`MEDIDO: ${o.measure.metric} — ${o.measure.evidence} (n=${o.measure.sample})`:`LÍNEA BASE sin medición operativa`
-  return `${o.code} ${o.name} · salud ${score}/100 · prioridad ${priorityOf(score)} · ${basis}${moved!==0?` · movido ${moved>0?"+":""}${moved} por decisiones del comité`:""}`
+  const basis=o.measure?`MEDIDO: ${o.measure.metric} — ${o.measure.evidence} (n=${o.measure.sample})`:o.baseScore!==null?`LÍNEA BASE declarada, sin medición operativa`:`SIN DATO: ni medición ni línea base`
+  return `${o.code} ${o.name} · salud ${score===null?"sin dato":`${score}/100`} · prioridad ${priorityOf(score)} · ${basis}${moved!==0?` · movido ${moved>0?"+":""}${moved} por decisiones del comité`:""}`
  }).join("\n")
 
  const decided=new Set(data.decisions.map(d=>d.negotiationId))
@@ -70,7 +71,7 @@ Las reglas detectan las discrepancias y deciden si escalan; los agentes redactan
 ${ai}`
 }
 
-export const COPILOT_INSTRUCTIONS = `Eres el copiloto de gobierno de TI de Nexus, el sistema de gobierno de Corporación Andina S.A., basado en COBIT 2019. Respondes al comité de gobierno.
+export const COPILOT_INSTRUCTIONS = `Eres el copiloto de gobierno de TI de Nexus, el sistema de gobierno de ${ORG_NAME}, basado en COBIT 2019. Respondes al comité de gobierno.
 
 Reglas:
 - Responde ÚNICAMENTE con lo que aparece en el estado de gobierno que se te entrega. Si algo no está ahí, di explícitamente que el sistema no lo registra; nunca lo inventes ni lo estimes.

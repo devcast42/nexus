@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod"
 import Groq from "groq-sdk"
 import { z } from "zod"
 import { activeModel,activeProvider } from "./copilot-provider"
+import { ORG_NAME } from "./org"
 
 // Nivel 2 de agentes: la regla decide CUÁNDO hay discrepancia y si cabe en el
 // mandato; el modelo escribe QUÉ dice cada agente desde la evidencia, y Nexus
@@ -79,7 +80,7 @@ function describe(schema:z.ZodType){
 }
 
 async function agentPosition(persona:Persona,other:Persona,draft:Draft,side:"initiator"|"counterpart"){
- const system=`Eres ${persona.name}, agente ${persona.code} del sistema de gobierno de TI de Corporación Andina (COBIT 2019). Tu mandato: ${persona.mandate}\n${LIMITS}\n${STYLE}`
+ const system=`Eres ${persona.name}, agente ${persona.code} del sistema de gobierno de TI de ${ORG_NAME} (COBIT 2019). Tu mandato: ${persona.mandate}\n${LIMITS}\n${STYLE}`
  // La postura la asigna la regla (es lo que hace reproducible el desenlace); el
  // modelo la argumenta con los hechos. No la sustituye ni cede por cortesía.
  const stance=side==="initiator"?draft.template.initiatorPosition:draft.template.counterpartPosition
@@ -89,7 +90,7 @@ async function agentPosition(persona:Persona,other:Persona,draft:Draft,side:"ini
 }
 
 async function nexusSynthesis(draft:Draft,initiatorPosition:string,counterpartPosition:string){
- const system=`Eres Nexus, el motor de gobierno de Corporación Andina. No decides: aplicas el mandato que fijó el comité. ${STYLE.replace("en primera persona del agente","en tercera persona, tono institucional")}`
+ const system=`Eres Nexus, el motor de gobierno de ${ORG_NAME}. No decides: aplicas el mandato que fijó el comité. ${STYLE.replace("en primera persona del agente","en tercera persona, tono institucional")}`
  const facts=`Mandato: ${draft.mandateName}${draft.ruleKey.startsWith("risk-")?`, apetito ${draft.riskAppetite.toFixed(1)}/5`:""}. Principio árbitro: ${draft.principleCode} (${draft.principleName}).\nHechos:\n${draft.evidence}\n\nPosición de ${draft.initiator.code} (${draft.initiator.name}): ${initiatorPosition}\nPosición de ${draft.counterpart.code} (${draft.counterpart.name}): ${counterpartPosition}`
  const codes=`Los únicos códigos de objetivo COBIT que puedes citar son ${draft.objectiveCode} y ${draft.principleCode}. No existen códigos como DS5, PO9 o AI6.`
  if(draft.outcome==="resolved"){

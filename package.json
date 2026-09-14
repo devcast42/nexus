@@ -12,7 +12,10 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.ts",
     "ops:generate": "tsx scripts/generate-activity.ts",
-    "ops:reset": "tsx scripts/reset-operations.ts"
+    "ops:reset": "tsx scripts/reset-operations.ts",
+    "db:seed:fresh": "SEED_PROFILE=fresh tsx lib/db/seed.ts",
+    "company:wipe": "tsx scripts/wipe-company.ts",
+    "company:fresh": "tsx scripts/wipe-company.ts && SEED_PROFILE=fresh tsx lib/db/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
