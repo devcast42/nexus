@@ -12,7 +12,7 @@ operación → medición → regla → negociación → decisión → operación
 
 1. Alguien registra un hecho —un incidente, un cambio, un riesgo— en la **mesa de trabajo**, o lo produce el generador de actividad por la misma API.
 2. El gobierno **mide**: la mitad de los 40 objetivos COBIT se deriva de esa evidencia (20 con la actividad generada), cada uno con su tamaño de muestra. Los demás muestran su línea base y se marcan como tal. La propia cobertura de medición es lo que mide MEA01.
-3. Las **reglas** comparan la operación con el mandato: un riesgo por encima del apetito, un cambio sin evidencia, un control inefectivo. Producen negociaciones entre agentes; las que caben en el mandato se resuelven solas, las que exigirían cambiarlo **escalan al comité**.
+3. Las **reglas** comparan la operación con el mandato: un riesgo por encima del apetito, un cambio sin evidencia, un control inefectivo. Cuando detectan una discrepancia, **cada agente argumenta su postura con un modelo de lenguaje desde la evidencia**, y **Nexus** —el motor, no un agente— formula los términos del consenso si cabe en el mandato, o la propuesta que llega al comité si no. La regla decide el desenlace; el modelo pone la voz.
 4. El comité **firma** una rama, y la firma ejecuta una operación: detener el proyecto, aceptar el riesgo, adjuntar la evidencia.
 5. La medición cambia porque la operación cambió, y el **copiloto** lo explica citando los hechos.
 
@@ -32,7 +32,7 @@ operación → medición → regla → negociación → decisión → operación
 |---|---|
 | **Command Center** | Salud de los 5 dominios y los 40 objetivos (medido vs. línea base), decisiones pendientes con las dos posiciones de los agentes y el principio COBIT que arbitra, registro de decisiones |
 | **Operación** | Mesa de trabajo: incidentes, cambios, riesgos, proyectos, seguridad, controles, servicios y proveedores. Lista, filtros, detalle y acciones; cada pantalla dice a qué objetivo alimenta |
-| **Agentes** | Red multiagente y las negociaciones —resueltas y escaladas— tal como las produjeron las reglas |
+| **Agentes** | Cinco agentes con mandato propio. Su estado y actividad se derivan de lo que cada uno levantó. Las negociaciones muestran las posiciones que cada agente **argumentó con un modelo desde la evidencia**, y la síntesis de Nexus. Panel del motor con su última corrida |
 | **Simulador** | Los 10 factores de diseño de COBIT 2019 (DF1–DF10, 64 valores) recalculan la prioridad de los 40 objetivos. "Aplicar" fija el mandato bajo el que operan los agentes |
 | **Copiloto** | Responde solo desde una instantánea del estado leída en el servidor; distingue puntaje medido de línea base y dice cuándo el sistema no registra algo |
 | **Gobierno de IA** | Registro de sistemas de IA de la organización con riesgo, controles recomendados y aceptados |
@@ -109,7 +109,8 @@ scripts/                  generador de actividad y reseteo
 - **Los pesos de los factores de diseño son una calibración propia de este proyecto**, no las tablas del COBIT 2019 Design Toolkit de ISACA, que son material licenciado. La estructura del cálculo sí sigue el modelo de COBIT —suma ponderada y normalización a importancia relativa— y los pesos viven en la tabla `design_factor_weights` para poder sustituirlos por los oficiales sin tocar el motor.
 - **El generador produce actividad plausible, no real.** Sigue siendo simulación, pero simulación *de la operación por la API*, no siembra del gobierno. Integrar una fuente real (Jira, GitHub, ServiceNow) sería reemplazar el generador sin tocar nada más.
 - **No hay autenticación.** `decided_by` es un valor por defecto. Mientras el registro de decisiones sea la evidencia de gobierno, saber quién firmó es lo que le da valor; es el paso siguiente si el proyecto sigue.
-- **Los agentes no razonan por inferencia.** Las negociaciones son la salida de reglas deterministas sobre la operación. Lo que se demuestra es la arquitectura —qué se mide, qué escala, quién firma— no un agente autónomo.
+- **Los agentes argumentan, no vigilan.** Las reglas deterministas detectan cada discrepancia y deciden si escala; el modelo redacta las posiciones de cada agente y la síntesis de Nexus a partir de los hechos, con la postura que la regla asigna. Los agentes no perciben por su cuenta ni se hablan entre sí; no hay bucle autónomo. La frase honesta: *las reglas detectan, los agentes argumentan, Nexus aplica el mandato, el comité decide*. Sin modelo disponible, todo funciona con las plantillas de la regla y así se marca.
+- **El plan gratuito de Groq limita la redacción** a unas 8.000 tokens por minuto, ~2 negociaciones. Por eso Nexus redacta hasta 3 por evaluación (`AUTHORING_BATCH`) y deja el resto en plantilla para la siguiente corrida; cada operación, firma o cambio de mandato vuelve a evaluar.
 
 ## Stack
 

@@ -95,13 +95,14 @@ export const notices: Notice[] = [
   fact:"El comité revisó el apetito de riesgo. Los umbrales vigentes ya fueron aplicados por los agentes."},
 ]
 
+// Un agente por dominio de gestión y uno por gobierno. Su mandato es lo que el
+// modelo usa para argumentar. Nexus no es un agente: es el motor que aplica el mandato.
 export const agents = [
- {domain:"EDM",name:"Centinela Estratégico",status:"Activo",action:"Validó alineación del portafolio",count:5,data:[4,7,5,8,9,8]},
- {domain:"APO",name:"Navegante de Riesgo",status:"Alerta",action:"Escaló riesgo del proyecto Atlas",count:14,data:[5,4,8,7,11,14]},
- {domain:"BAI",name:"Arquitecto de Cambio",status:"Analizando",action:"Revisando evidencia de transición",count:11,data:[3,6,5,9,7,10]},
- {domain:"DSS",name:"Guardián Operativo",status:"Activo",action:"Verificó SLA de servicios críticos",count:6,data:[8,7,9,8,10,9]},
- {domain:"MEA",name:"Auditor Continuo",status:"Analizando",action:"Correlacionando controles internos",count:4,data:[2,5,4,6,8,7]},
- {domain:"NX",name:"Orquestador Nexus",status:"Activo",action:"Sincronizó consenso multiagente",count:40,data:[9,12,11,15,14,18]},
+ {domain:"EDM",name:"Centinela Estratégico",mandate:"Defiende las prioridades y el apetito de riesgo que el comité aprobó. Una iniciativa aprobada no se detiene sin que el comité lo decida."},
+ {domain:"APO",name:"Navegante de Riesgo",mandate:"Ningún riesgo abierto debe operar por encima del apetito. Cuando la exposición supera el umbral, la actividad expuesta se suspende hasta mitigar."},
+ {domain:"BAI",name:"Arquitecto de Cambio",mandate:"Los cambios llegan a producción con evidencia y dentro de ventana, y una vez estables no se revierten sin causa operativa."},
+ {domain:"DSS",name:"Guardián Operativo",mandate:"Los servicios cumplen su disponibilidad y sus tiempos comprometidos; ante recurrencia, se ataca la causa raíz antes que el síntoma."},
+ {domain:"MEA",name:"Auditor Continuo",mandate:"Un control que no protege no se da por bueno. Sin evidencia efectiva, el objetivo que cubre está descubierto."},
 ]
 export const aiSystems = [
  {name:"Sales Copilot",area:"Comercial",desc:"Asistente generativo para propuestas",risk:"Alto",controls:["APO12","APO13","MEA03"],status:"Pendiente"},

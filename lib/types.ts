@@ -8,7 +8,9 @@ export type MeasureView = { score:number; metric:string; evidence:string; sample
 // la línea base sembrada cuando el objetivo aún no se mide. `measure` dice cuál fue.
 export type ObjectiveView = { code:string; name:string; domain:DomainCode; baseScore:number; score:number; measure:MeasureView|null; agent:string; history:number[] }
 export type CoverageView = { covered:number; total:number; score:number }
-export type AgentView = { code:string; name:string; status:string; action:string; watched:number; activity:number[] }
+// Todo derivado de las negociaciones que el agente inició: nada sembrado.
+export type AgentView = { code:string; name:string; mandate:string; status:"Alerta"|"Analizando"|"Activo"; action:string; watched:number; activity:number[]; escalated:number; resolved:number; signed:number }
+export type EvaluationView = { ranAt:string; mandate:string; riskAppetite:number; negotiations:number; escalated:number; resolved:number; retired:number; notices:number; authored:number; authoringModel:string|null; durationMs:number }
 export type NegotiationView = {
  id:number; objective:string; domain:DomainCode; severity:"critical"|"warning"|"info"
  fact:string
@@ -21,6 +23,7 @@ export type NegotiationView = {
  proposal:string|null
  approve:Outcome|null; reject:Outcome|null
  time:string
+ authoredBy:"model"|"rule"; authoringModel:string|null
 }
 export type NoticeView = { id:number; objective:string; domain:DomainCode; severity:"critical"|"warning"|"info"; agent:string; fact:string; time:string }
 export type DecisionView = { negotiationId:number; objective:string; domain:DomainCode; agent:string; verdict:Verdict; label:string; impact:string; delta:number; decidedBy:string; at:string }
@@ -28,7 +31,7 @@ export type DesignValueView = { id:string; key:string; label:string; weights:Rec
 export type DesignFactorView = { code:string; name:string; description:string; input:"rating"|"toggle"|"choice"; values:DesignValueView[] }
 export type DesignProfileView = { id:number; name:string; inputs:Record<string,number>; riskAppetite:number; appliedBy:string; appliedAt:string }
 export type AiSystemView = { id:number; name:string; area:string; description:string; risk:string; status:string; controls:string[]; acceptedControls:string[]; assessed:boolean }
-export type GovernanceData = { domains:DomainView[]; objectives:ObjectiveView[]; agents:AgentView[]; negotiations:NegotiationView[]; notices:NoticeView[]; decisions:DecisionView[]; aiSystems:AiSystemView[]; designFactors:DesignFactorView[]; activeProfile:DesignProfileView|null; coverage:CoverageView; operations:OperationsView }
+export type GovernanceData = { domains:DomainView[]; objectives:ObjectiveView[]; agents:AgentView[]; negotiations:NegotiationView[]; notices:NoticeView[]; decisions:DecisionView[]; aiSystems:AiSystemView[]; designFactors:DesignFactorView[]; activeProfile:DesignProfileView|null; coverage:CoverageView; operations:OperationsView; lastEvaluation:EvaluationView|null }
 
 // ── Capa operativa (modelos de vista) ─────────────────────────────────────────
 // Fechas: `*At` en ISO para lógica, `*Label` ya formateado en el servidor para

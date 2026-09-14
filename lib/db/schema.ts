@@ -17,13 +17,12 @@ export const objectives = pgTable("objectives",{
  history:jsonb("history").$type<number[]>().notNull(),
 })
 
+// Solo identidad. Estado, última acción y actividad se derivan de las negociaciones
+// que cada agente inició: nada de eso se siembra.
 export const agents = pgTable("agents",{
  code:varchar("code",{length:3}).primaryKey(),
  name:text("name").notNull(),
- status:text("status").notNull(),
- action:text("action").notNull(),
- watched:integer("watched").notNull(),
- activity:jsonb("activity").$type<number[]>().notNull(),
+ mandate:text("mandate").notNull(),
 })
 
 export const negotiations = pgTable("negotiations",{
@@ -58,7 +57,29 @@ export const negotiations = pgTable("negotiations",{
  // en la medición.
  approveOps:jsonb("approve_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
  rejectOps:jsonb("reject_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
+ // Quién escribió las posiciones y la síntesis: "model" (los agentes y Nexus por LLM)
+ // o "rule" (plantilla de la regla, cuando no hay modelo disponible). factsHash
+ // detecta cuándo cambiaron los hechos y hay que redactar de nuevo.
+ authoredBy:text("authored_by").$type<"model"|"rule">().notNull().default("rule"),
+ authoringModel:text("authoring_model"),
+ factsHash:varchar("facts_hash",{length:32}).notNull().default(""),
  openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
+})
+
+// Traza del motor: cada evaluación de reglas deja constancia de lo que hizo.
+export const governanceEvaluations = pgTable("governance_evaluations",{
+ id:serial("id").primaryKey(),
+ ranAt:timestamp("ran_at",{withTimezone:true}).notNull().defaultNow(),
+ mandate:text("mandate").notNull(),
+ riskAppetite:real("risk_appetite").notNull(),
+ negotiations:integer("negotiations").notNull(),
+ escalated:integer("escalated").notNull(),
+ resolved:integer("resolved").notNull(),
+ retired:integer("retired").notNull(),
+ notices:integer("notices").notNull(),
+ authored:integer("authored").notNull(),
+ authoringModel:text("authoring_model"),
+ durationMs:integer("duration_ms").notNull(),
 })
 
 export const notices = pgTable("notices",{

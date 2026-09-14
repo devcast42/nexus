@@ -31,7 +31,7 @@ export function buildGovernanceSnapshot(data:GovernanceData){
 
  const notices=data.notices.map(n=>`- [${n.objective}] ${n.fact} (${n.agent}, ${n.time})`).join("\n")||"Ninguno."
 
- const agents=data.agents.map(a=>`${a.code} ${a.name} · estado ${a.status} · vigila ${a.watched} objetivos · última acción: ${a.action}`).join("\n")
+ const agents=data.agents.map(a=>`${a.code} ${a.name} · mandato: ${a.mandate} · estado ${a.status} (derivado: ${a.escalated} escaladas, ${a.resolved} resueltas, ${a.signed} firmadas) · última acción: ${a.action}`).join("\n")
 
  const ai=data.aiSystems.map(s=>`- ${s.name} (${s.area}, riesgo ${s.risk}, estado ${s.status}): ${s.description}. Controles recomendados ${s.controls.join(", ")}${s.acceptedControls.length>0?`; aceptados por el comité: ${s.acceptedControls.join(", ")}`:"; sin controles aceptados aún"}`).join("\n")
 
@@ -61,6 +61,10 @@ ${notices}
 
 ## Agentes
 ${agents}
+
+## Motor Nexus
+${data.lastEvaluation?`Última evaluación ${data.lastEvaluation.ranAt} bajo el mandato «${data.lastEvaluation.mandate}» (apetito ${data.lastEvaluation.riskAppetite}): ${data.lastEvaluation.negotiations} discrepancias, ${data.lastEvaluation.escalated} escaladas, ${data.lastEvaluation.resolved} resueltas, ${data.lastEvaluation.retired} retiradas, ${data.lastEvaluation.authored} redactadas por ${data.lastEvaluation.authoringModel??"plantilla"}.`:"Sin evaluaciones registradas."}
+Las reglas detectan las discrepancias y deciden si escalan; los agentes redactan sus posiciones desde la evidencia; Nexus sintetiza; el comité firma. Los agentes no vigilan por su cuenta ni se hablan entre sí.
 
 ## Registro de sistemas de IA
 ${ai}`

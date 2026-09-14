@@ -33,8 +33,8 @@ async function main(){
   .onConflictDoUpdate({target:schema.objectives.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),agent:sqlExcluded("agent"),history:sqlExcluded("history")}})
  console.log(`✓ ${seedObjectives.length} objetivos COBIT`)
 
- await db.insert(schema.agents).values(seedAgents.map(a=>({code:a.domain,name:a.name,status:a.status,action:a.action,watched:a.count,activity:a.data})))
-  .onConflictDoUpdate({target:schema.agents.code,set:{name:sqlExcluded("name"),status:sqlExcluded("status"),action:sqlExcluded("action"),watched:sqlExcluded("watched"),activity:sqlExcluded("activity")}})
+ await db.insert(schema.agents).values(seedAgents.map(a=>({code:a.domain,name:a.name,mandate:a.mandate})))
+  .onConflictDoUpdate({target:schema.agents.code,set:{name:sqlExcluded("name"),mandate:sqlExcluded("mandate")}})
  console.log(`✓ ${seedAgents.length} agentes`)
 
  // Negociaciones y avisos NO se siembran: los producen las reglas de gobierno
