@@ -96,7 +96,7 @@ Opcional: en *Riesgos*, abre el riesgo y **marca una mitigación**. Cuando el re
 
 **Qué hacer:** **Registrar evento**, tipo *Fuga de credenciales*, severidad **Alta**, marca **Involucró información corporativa**.
 
-**Qué se ve:** escala de inmediato bajo APO13. APO pide activar el protocolo de brecha; DSS pide contener y evaluar antes de disparar notificaciones externas. Firma **Activar protocolo**: queda registrado a nombre del comité. Luego, como SOC, en *Operación → Seguridad* pulsa **Contener** sobre el evento: **DSS05** lo mide en ese momento, no al firmar.
+**Qué se ve:** la confirmación dice *1 escalada al comité*; en *Command Center* escala bajo APO13. APO pide activar el protocolo de brecha; DSS pide contener y evaluar antes de disparar notificaciones externas. Firma **Activar protocolo**: queda registrado a nombre del comité. Luego, como SOC, en *Operación → Seguridad* pulsa **Contener** sobre el evento: **DSS05** lo mide en ese momento, no al firmar.
 
 **Qué decir:** *"Activar un protocolo de brecha compromete a la empresa frente a terceros. Ningún agente lo decide. Un evento sin datos y de severidad media solo generaría un aviso a las 48 horas: no todo merece una decisión."*
 

@@ -11,7 +11,7 @@ import { Feedback,Field,SelectField,TextField } from "./shared"
 import { useOperations } from "./use-operations"
 
 export function ServicesPanel({services,suppliers}:{services:ServiceView[];suppliers:SupplierView[]}){
- const {run,busy,error,last,activity}=useOperations()
+ const {run,busy,error,last}=useOperations()
  const [service,setService]=useState<ServiceView|null>(null);const [supplier,setSupplier]=useState<SupplierView|null>(null)
  const [mAvail,setMAvail]=useState("99.9");const [mBreaches,setMBreaches]=useState("0")
  const [eCompliance,setECompliance]=useState("95");const [eFindings,setEFindings]=useState("0");const [eBy,setEBy]=useState("Gerencia de Abastecimiento")
@@ -24,7 +24,7 @@ export function ServicesPanel({services,suppliers}:{services:ServiceView[];suppl
  async function measure(){if(service&&await run({type:"sla.measure",payload:{serviceCode:service.code,measuredAvailability:Number(mAvail),breaches:Number(mBreaches)}}))setService(null)}
  async function evaluate(){if(supplier&&await run({type:"supplier.evaluate",payload:{supplierCode:supplier.code,slaCompliance:Number(eCompliance),findings:Number(eFindings),evaluatedBy:eBy}}))setSupplier(null)}
 
- return <div className="flex flex-col gap-4"><Feedback error={error} last={last} activity={activity}/>
+ return <div className="flex flex-col gap-4"><Feedback error={error} last={last}/>
   <Card><CardHeader><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><CardTitle>Catálogo de servicios</CardTitle><CardDescription>Los servicios de TI que la organización presta. Sin servicios no hay incidentes ni cambios que registrar. La disponibilidad medida alimenta a BAI04 y APO09.</CardDescription></div><Button onClick={()=>setNewService(true)}><Plus data-icon="inline-start"/>Dar de alta servicio</Button></div></CardHeader>
    <CardContent className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Servicio</TableHead><TableHead>Criticidad</TableHead><TableHead>Propietario</TableHead><TableHead>Objetivo</TableHead><TableHead>Último periodo</TableHead><TableHead>Incidentes abiertos</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
    <TableBody>{services.map(s=><TableRow key={s.code}><TableCell><span className="font-mono text-primary">{s.code}</span> <span className="font-medium">{s.name}</span></TableCell><TableCell><Badge variant={critVariant(s.criticality)}>{s.criticality}</Badge></TableCell><TableCell className="text-muted-foreground">{s.owner}</TableCell><TableCell className="font-mono">{s.targetAvailability}%</TableCell><TableCell className="font-mono text-xs">{s.latestAvailability===null?"—":<span className={s.latestAvailability>=s.targetAvailability?"text-success":"text-destructive"}>{s.latestAvailability.toFixed(2)}% · {s.latestBreaches} incumpl.</span>}</TableCell><TableCell className="font-mono">{s.openIncidents}</TableCell><TableCell className="text-right"><Button size="sm" variant="outline" onClick={()=>{setService(s);setMAvail(String(s.targetAvailability))}}>Medir periodo</Button></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
