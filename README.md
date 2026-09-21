@@ -78,7 +78,7 @@ pnpm ops:reset
 Necesita una credencial. Anthropic por defecto; Groq si solo existe su clave.
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...     # claude-opus-5
+ANTHROPIC_API_KEY=sk-ant-...     # claude-haiku-4-5 por defecto, o el que pongas en ANTHROPIC_MODEL
 # o
 GROQ_API_KEY=gsk_...             # openai/gpt-oss-120b, o el que pongas en GROQ_MODEL
 COPILOT_PROVIDER=groq            # fuerza uno u otro

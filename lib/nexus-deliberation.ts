@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod"
 import Groq from "groq-sdk"
 import { z } from "zod"
-import { activeModel,activeProvider } from "./copilot-provider"
+import { activeModel,activeProvider,anthropicEffort } from "./copilot-provider"
 import { ORG_NAME } from "./org"
 
 // Nexus es el único agente. Cuando una regla detecta una discrepancia, Nexus la
@@ -63,7 +63,7 @@ async function completeJSON<T>(system:string,user:string,schema:z.ZodType<T>,sha
    return schema.parse(JSON.parse(res.choices[0]?.message?.content??""))
   }
   const anthropic=new Anthropic()
-  const res=await anthropic.messages.parse({model:activeModel(),max_tokens:3000,output_config:{effort:"low",format:zodOutputFormat(schema)},system,messages:[{role:"user",content:user}]})
+  const res=await anthropic.messages.parse({model:activeModel(),max_tokens:3000,output_config:{...anthropicEffort("low"),format:zodOutputFormat(schema)},system,messages:[{role:"user",content:user}]})
   if(!res.parsed_output)throw new Error("El modelo no devolvió la estructura esperada")
   return res.parsed_output
  })

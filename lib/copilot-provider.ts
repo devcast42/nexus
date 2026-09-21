@@ -4,7 +4,11 @@ import Groq from "groq-sdk"
 export type ChatTurn = { role:"user"|"assistant"; content:string }
 export type Provider = "anthropic" | "groq"
 
-const ANTHROPIC_MODEL = "claude-opus-5"
+// Haiku 4.5 por defecto: es el más barato y alcanza para el copiloto y la deliberación.
+// ANTHROPIC_MODEL permite subir a claude-sonnet-5 o claude-opus-5.
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001"
+// Haiku no acepta el parámetro effort; solo se envía en Sonnet/Opus.
+export function anthropicEffort(level:"low"|"medium"):{effort:"low"|"medium"}|{}{return ANTHROPIC_MODEL.includes("haiku")?{}:{effort:level}}
 // Verificado contra el catálogo de la cuenta: el de mayor capacidad disponible.
 const GROQ_MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b"
 
@@ -38,8 +42,8 @@ export async function*streamCopilot(system:string,messages:ChatTurn[]):AsyncGene
  const anthropic=new Anthropic()
  const stream=anthropic.messages.stream({
   model:ANTHROPIC_MODEL,
-  max_tokens:8000,
-  output_config:{effort:"medium"},
+  max_tokens:4000,
+  output_config:{...anthropicEffort("medium")},
   system:[{type:"text",text:system,cache_control:{type:"ephemeral"}}],
   messages,
  })
