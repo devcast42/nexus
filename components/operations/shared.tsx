@@ -21,10 +21,11 @@ export function Yes({ok,yes="Sí",no="No"}:{ok:boolean|null;yes?:string;no?:stri
  if(ok===null)return <span className="text-muted-foreground">—</span>
  return <span className={ok?"text-success":"text-destructive"}>{ok?yes:no}</span>
 }
+// Solo la confirmación. El detalle de lo que hizo Nexus vive en Nexus → Actividad.
 export function Feedback({error,last}:{error:string|null;last:string|null}){
  if(error)return <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
- if(last)return <p className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">{last}</p>
- return null
+ if(!last)return null
+ return <p className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">{last}</p>
 }
 export const SEVERITIES:readonly {value:Severity;label:string}[]=[{value:"Crítica",label:"Crítica"},{value:"Alta",label:"Alta"},{value:"Media",label:"Media"},{value:"Baja",label:"Baja"}]
 export const minutesLabel=(m:number)=>m<60?`${m} min`:m<1440?`${Math.round(m/60*10)/10} h`:`${Math.round(m/1440*10)/10} d`

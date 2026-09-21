@@ -31,6 +31,8 @@ const SEVERITIES=["Crítica","Alta","Media","Baja"] as const
 const CHANGE_KINDS=["Normal","Estándar","Emergencia"] as const
 const TEST_RESULTS=["Efectivo","Parcial","Inefectivo"] as const
 const RISK_STATUS=["Abierto","Mitigado","Aceptado","Cerrado"] as const
+const CRITICALITY=["Crítico","Alto","Medio","Bajo"] as const
+const codeFrom=(prefix:string,value:unknown,max=12)=>{const raw=requireString(value,"código",max).toUpperCase().replace(/[^A-Z0-9-]/g,"");if(raw.length<2)throw new OperationError("El código necesita al menos 2 caracteres además del prefijo");return raw.startsWith(prefix)?raw:`${prefix}${raw}`}
 const PROJECT_STATUS=["En curso","En riesgo","Detenido","Cerrado"] as const
 
 type Payload = Record<string,unknown>
@@ -42,6 +44,8 @@ export const operationTypes = [
  "project.start","project.update",
  "security.detect","security.contain",
  "control.test","sla.measure","supplier.evaluate",
+ // Maestros: una organización nueva da de alta su catálogo desde la mesa de trabajo
+ "service.register","supplier.register","control.define",
 ] as const
 export type OperationType = typeof operationTypes[number]
 
@@ -186,6 +190,31 @@ export async function applyOperation(type:string,payload:Payload,at:Date=new Dat
     findings:requireInt(payload.findings??0,"hallazgos",0,100),
     evaluatedBy:requireString(payload.evaluatedBy,"evaluado por")})
    return {supplierCode}
+  }
+  case "service.register":{
+   const code=codeFrom("SVC-",payload.code)
+   await db.insert(schema.services).values({code,name:requireString(payload.name,"nombre"),criticality:requireOneOf(payload.criticality,CRITICALITY,"criticidad"),
+    owner:requireString(payload.owner,"propietario"),targetAvailability:Number(payload.targetAvailability)||99,
+    slaCriticalMinutes:requireInt(payload.slaCriticalMinutes??60,"SLA crítico (min)",5,10080),slaHighMinutes:requireInt(payload.slaHighMinutes??240,"SLA alto (min)",5,43200)})
+    .onConflictDoUpdate({target:schema.services.code,set:{name:requireString(payload.name,"nombre"),criticality:requireOneOf(payload.criticality,CRITICALITY,"criticidad"),owner:requireString(payload.owner,"propietario"),targetAvailability:Number(payload.targetAvailability)||99,slaCriticalMinutes:requireInt(payload.slaCriticalMinutes??60,"SLA crítico (min)",5,10080),slaHighMinutes:requireInt(payload.slaHighMinutes??240,"SLA alto (min)",5,43200)}})
+   return {code}
+  }
+  case "supplier.register":{
+   const code=codeFrom("SUP-",payload.code)
+   const contractEnd=payload.contractEnd?new Date(String(payload.contractEnd)):new Date(at.getTime()+365*24*60*60_000)
+   if(Number.isNaN(contractEnd.getTime()))throw new OperationError("Fecha de fin de contrato inválida")
+   await db.insert(schema.suppliers).values({code,name:requireString(payload.name,"nombre"),criticality:requireOneOf(payload.criticality,CRITICALITY,"criticidad"),service:requireString(payload.service,"servicio que presta"),contractEnd})
+    .onConflictDoUpdate({target:schema.suppliers.code,set:{name:requireString(payload.name,"nombre"),criticality:requireOneOf(payload.criticality,CRITICALITY,"criticidad"),service:requireString(payload.service,"servicio que presta"),contractEnd}})
+   return {code}
+  }
+  case "control.define":{
+   const code=codeFrom("CTL-",payload.code)
+   const objectiveCode=requireString(payload.objectiveCode,"objetivo COBIT",8).toUpperCase()
+   const [objective]=await db.select({code:schema.objectives.code}).from(schema.objectives).where(eq(schema.objectives.code,objectiveCode))
+   if(!objective)throw new OperationError(`El objetivo ${objectiveCode} no existe en COBIT 2019`)
+   await db.insert(schema.controls).values({code,name:requireString(payload.name,"nombre"),objectiveCode,owner:requireString(payload.owner,"responsable"),frequencyDays:requireInt(payload.frequencyDays??30,"frecuencia (días)",1,365)})
+    .onConflictDoUpdate({target:schema.controls.code,set:{name:requireString(payload.name,"nombre"),objectiveCode,owner:requireString(payload.owner,"responsable"),frequencyDays:requireInt(payload.frequencyDays??30,"frecuencia (días)",1,365)}})
+   return {code}
   }
   default:
    throw new OperationError(`Operación desconocida: ${type}`)

@@ -3,6 +3,7 @@ import { syncGovernanceSignals } from "@/lib/governance-rules"
 import { OperationError,applyOperation,operationTypes,operationalSummary } from "@/lib/operations"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 60
 
 // Única puerta HTTP de la capa operativa. La mesa de trabajo y el generador de
 // actividad usan exactamente este endpoint: no hay ninguna vía que escriba

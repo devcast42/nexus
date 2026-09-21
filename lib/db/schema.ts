@@ -3,8 +3,10 @@ import { boolean,integer,jsonb,pgTable,primaryKey,real,serial,text,timestamp,var
 export const domains = pgTable("domains",{
  code:varchar("code",{length:3}).primaryKey(),
  name:text("name").notNull(),
- baseScore:integer("base_score").notNull(),
- trend:real("trend").notNull(),
+ // Nulos en una organización nueva: no hay historia que declarar. Se rellenan
+ // solo en la semilla de demostración.
+ baseScore:integer("base_score"),
+ trend:real("trend"),
  targetMaturity:real("target_maturity").notNull().default(4),
 })
 
@@ -12,18 +14,20 @@ export const objectives = pgTable("objectives",{
  code:varchar("code",{length:8}).primaryKey(),
  name:text("name").notNull(),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
- baseScore:integer("base_score").notNull(),
- agent:text("agent").notNull(),
+ // Nulo hasta que exista evidencia operativa o la organización declare una línea base
+ baseScore:integer("base_score"),
+ // Lente de Nexus (dominio COBIT) que vigila este objetivo
+ lens:varchar("lens",{length:3}).notNull(),
  history:jsonb("history").$type<number[]>().notNull(),
 })
 
-export const agents = pgTable("agents",{
+// Los cinco lentes con los que Nexus —el único agente— analiza cada hecho: uno por
+// dominio COBIT, cada uno con el mandato que defiende. No son actores; son criterios.
+// Su actividad se deriva de las discrepancias que Nexus levantó desde cada lente.
+export const lenses = pgTable("lenses",{
  code:varchar("code",{length:3}).primaryKey(),
  name:text("name").notNull(),
- status:text("status").notNull(),
- action:text("action").notNull(),
- watched:integer("watched").notNull(),
- activity:jsonb("activity").$type<number[]>().notNull(),
+ mandate:text("mandate").notNull(),
 })
 
 export const negotiations = pgTable("negotiations",{
@@ -35,9 +39,9 @@ export const negotiations = pgTable("negotiations",{
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
  severity:text("severity").$type<"critical"|"warning"|"info">().notNull(),
  fact:text("fact").notNull(),
- initiatorAgent:varchar("initiator_agent",{length:3}).notNull().references(()=>agents.code),
+ initiatorLens:varchar("initiator_lens",{length:3}).notNull().references(()=>lenses.code),
  initiatorPosition:text("initiator_position").notNull(),
- counterpartAgent:varchar("counterpart_agent",{length:3}).notNull().references(()=>agents.code),
+ counterpartLens:varchar("counterpart_lens",{length:3}).notNull().references(()=>lenses.code),
  counterpartPosition:text("counterpart_position").notNull(),
  // Objetivo COBIT invocado para dirimir la discrepancia
  principleCode:varchar("principle_code",{length:8}).notNull().references(()=>objectives.code),
@@ -58,7 +62,29 @@ export const negotiations = pgTable("negotiations",{
  // en la medición.
  approveOps:jsonb("approve_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
  rejectOps:jsonb("reject_ops").$type<{type:string;payload:Record<string,unknown>}[]>().notNull().default([]),
+ // Quién escribió el análisis: "model" (Nexus deliberando con el LLM) o "rule"
+ // (plantilla de la regla, cuando no hay modelo disponible). factsHash
+ // detecta cuándo cambiaron los hechos y hay que redactar de nuevo.
+ authoredBy:text("authored_by").$type<"model"|"rule">().notNull().default("rule"),
+ authoringModel:text("authoring_model"),
+ factsHash:varchar("facts_hash",{length:32}).notNull().default(""),
  openedAt:timestamp("opened_at",{withTimezone:true}).notNull().defaultNow(),
+})
+
+// Traza del motor: cada evaluación de reglas deja constancia de lo que hizo.
+export const governanceEvaluations = pgTable("governance_evaluations",{
+ id:serial("id").primaryKey(),
+ ranAt:timestamp("ran_at",{withTimezone:true}).notNull().defaultNow(),
+ mandate:text("mandate").notNull(),
+ riskAppetite:real("risk_appetite").notNull(),
+ negotiations:integer("negotiations").notNull(),
+ escalated:integer("escalated").notNull(),
+ resolved:integer("resolved").notNull(),
+ retired:integer("retired").notNull(),
+ notices:integer("notices").notNull(),
+ authored:integer("authored").notNull(),
+ authoringModel:text("authoring_model"),
+ durationMs:integer("duration_ms").notNull(),
 })
 
 export const notices = pgTable("notices",{
@@ -67,7 +93,7 @@ export const notices = pgTable("notices",{
  objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
  severity:text("severity").$type<"critical"|"warning"|"info">().notNull(),
- agent:text("agent").notNull(),
+ lens:varchar("lens",{length:3}).notNull(),
  fact:text("fact").notNull(),
  raisedAt:timestamp("raised_at",{withTimezone:true}).notNull().defaultNow(),
 })
@@ -77,12 +103,12 @@ export const decisions = pgTable("decisions",{
  negotiationId:integer("negotiation_id").notNull().unique().references(()=>negotiations.id),
  objectiveCode:varchar("objective_code",{length:8}).notNull().references(()=>objectives.code),
  domainCode:varchar("domain_code",{length:3}).notNull().references(()=>domains.code),
- agent:text("agent").notNull(),
+ lens:varchar("lens",{length:3}).notNull(),
  verdict:text("verdict").$type<"approved"|"rejected">().notNull(),
  label:text("label").notNull(),
  impact:text("impact").notNull(),
  delta:integer("delta").notNull(),
- decidedBy:text("decided_by").notNull().default("Lina Castillo"),
+ decidedBy:text("decided_by").notNull().default("Comité de gobierno"),
  decidedAt:timestamp("decided_at",{withTimezone:true}).notNull().defaultNow(),
 })
 
@@ -124,15 +150,15 @@ export const designFactorWeights = pgTable("design_factor_weights",{
  weight:integer("weight").notNull(),
 },t=>[primaryKey({columns:[t.valueId,t.objectiveCode]})])
 
-// El diseño de gobierno que el comité aplicó: el mandato bajo el que operan los agentes.
+// El diseño de gobierno que el comité aplicó: el mandato bajo el que operan Nexus.
 export const designProfiles = pgTable("design_profiles",{
  id:serial("id").primaryKey(),
  name:text("name").notNull(),
  inputs:jsonb("inputs").$type<Record<string,number>>().notNull(),
  // Umbral de riesgo residual (0-5) que el comité tolera. Es lo que EDM03 mide y
- // lo que los agentes citan cuando escalan: no es una constante del código.
+ // lo que Nexus citan cuando escalan: no es una constante del código.
  riskAppetite:real("risk_appetite").notNull().default(3.5),
- appliedBy:text("applied_by").notNull().default("Lina Castillo"),
+ appliedBy:text("applied_by").notNull().default("Comité de gobierno"),
  appliedAt:timestamp("applied_at",{withTimezone:true}).notNull().defaultNow(),
 })
 
@@ -268,4 +294,18 @@ export const controlTests = pgTable("control_tests",{
  result:text("result").$type<"Efectivo"|"Parcial"|"Inefectivo">().notNull(),
  evidence:text("evidence").notNull(),
  testedBy:text("tested_by").notNull(),
+})
+
+// Bitácora de Nexus: cada paso deja una entrada legible. Es lo que hace visible el
+// trabajo cuando entra información: qué regla saltó, qué argumentó Nexus desde cada
+// lente, qué concluyó, qué se retiró.
+export const nexusEvents = pgTable("nexus_events",{
+ id:serial("id").primaryKey(),
+ at:timestamp("at",{withTimezone:true}).notNull().defaultNow(),
+ kind:text("kind").$type<"rule.fired"|"nexus.argued"|"nexus.concluded"|"negotiation.retired"|"authoring.deferred"|"evaluation.completed">().notNull(),
+ actor:text("actor").notNull(),
+ ruleKey:varchar("rule_key",{length:64}),
+ objectiveCode:varchar("objective_code",{length:8}),
+ summary:text("summary").notNull(),
+ evaluationId:integer("evaluation_id"),
 })

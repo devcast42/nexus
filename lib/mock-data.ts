@@ -1,5 +1,5 @@
 export type Domain = "EDM" | "APO" | "BAI" | "DSS" | "MEA"
-export type Objective = { code: string; name: string; domain: Domain; score: number; priority: "Alta" | "Media" | "Baja"; agent: string; history: number[] }
+export type Objective = { code: string; name: string; domain: Domain; score: number; priority: "Alta" | "Media" | "Baja"; lens: Domain; history: number[] }
 
 export const domains = [
   { code: "EDM" as Domain, target: 4.5, name: "Evaluar, Dirigir y Monitorear", score: 91, trend: 3.2 },
@@ -19,7 +19,7 @@ MEA:["Desempeño y conformidad monitoreados","Sistema de control interno monitor
 const bases: Record<Domain, number>={EDM:88,APO:68,BAI:77,DSS:83,MEA:74}
 export const objectives: Objective[] = (Object.keys(names) as Domain[]).flatMap(domain => names[domain].map((name,i)=>{
  const score=Math.max(42,Math.min(96,bases[domain]+((i*7)%19)-9));
- return {code:`${domain}${String(i+1).padStart(2,"0")}`,name,domain,score,priority:score<65?"Alta":score<80?"Media":"Baja",agent:`Agente ${domain}`,history:[score-7,score-5,score-4,score-2,score+1,score].map(v=>Math.max(35,Math.min(98,v)))}
+ return {code:`${domain}${String(i+1).padStart(2,"0")}`,name,domain,score,priority:score<65?"Alta":score<80?"Media":"Baja",lens:domain,history:[score-7,score-5,score-4,score-2,score+1,score].map(v=>Math.max(35,Math.min(98,v)))}
 }))
 export type Outcome = { label: string; impact: string; delta: number }
 export type Negotiation = {
@@ -54,7 +54,7 @@ export const negotiations: Negotiation[] = [
   initiator:"DSS",initiatorPosition:"Repetir la prueba dentro de ventana en los próximos 7 días.",
   counterpart:"BAI",counterpartPosition:"No hay ventana libre en 7 días: el calendario de cambios está comprometido hasta fin de mes.",
   principle:"DSS04",outcome:"escalated",
-  escalationReason:"Resolverlo obliga a desplazar cambios ya aprobados o a dar por válida una prueba fuera de ventana. Ambas salidas modifican compromisos que los agentes no pueden alterar por sí solos.",
+  escalationReason:"Resolverlo obliga a desplazar cambios ya aprobados o a dar por válida una prueba fuera de ventana. Ambas salidas modifican compromisos que Nexus no pueden alterar por sí solos.",
   proposal:"Reprogramar la prueba dentro de los próximos 7 días desplazando el calendario de cambios.",
   approve:{label:"Reprogramar prueba",impact:"Se agenda dentro de ventana y DSS04 recupera conformidad. Dos cambios se desplazan una semana.",delta:5},
   reject:{label:"Aceptar la desviación",impact:"La prueba se da por válida fuera de ventana. La excepción queda documentada para la próxima auditoría.",delta:-3}},
@@ -87,21 +87,22 @@ export const negotiations: Negotiation[] = [
   resolution:"Muestreo ampliado solo sobre los controles con eficacia decreciente. Acordado sin alterar prioridades."},
 ]
 
-// Señales que los agentes reportan sin proponer acción: no hay nada que decidir.
+// Señales que Nexus reportan sin proponer acción: no hay nada que decidir.
 export const notices: Notice[] = [
  {id:1,objective:"MEA02",domain:"MEA",severity:"warning",agent:"Auditor MEA",time:"hace 38 min",
   fact:"La eficacia del control de acceso decrece por tercer periodo consecutivo. El agente sigue recolectando evidencia antes de proponer una acción."},
  {id:2,objective:"EDM03",domain:"EDM",severity:"info",agent:"Centinela EDM",time:"hace 1 h",
-  fact:"El comité revisó el apetito de riesgo. Los umbrales vigentes ya fueron aplicados por los agentes."},
+  fact:"El comité revisó el apetito de riesgo. Los umbrales vigentes ya fueron aplicados por Nexus."},
 ]
 
-export const agents = [
- {domain:"EDM",name:"Centinela Estratégico",status:"Activo",action:"Validó alineación del portafolio",count:5,data:[4,7,5,8,9,8]},
- {domain:"APO",name:"Navegante de Riesgo",status:"Alerta",action:"Escaló riesgo del proyecto Atlas",count:14,data:[5,4,8,7,11,14]},
- {domain:"BAI",name:"Arquitecto de Cambio",status:"Analizando",action:"Revisando evidencia de transición",count:11,data:[3,6,5,9,7,10]},
- {domain:"DSS",name:"Guardián Operativo",status:"Activo",action:"Verificó SLA de servicios críticos",count:6,data:[8,7,9,8,10,9]},
- {domain:"MEA",name:"Auditor Continuo",status:"Analizando",action:"Correlacionando controles internos",count:4,data:[2,5,4,6,8,7]},
- {domain:"NX",name:"Orquestador Nexus",status:"Activo",action:"Sincronizó consenso multiagente",count:40,data:[9,12,11,15,14,18]},
+// Los cinco lentes de Nexus: un dominio COBIT cada uno, con el mandato que defiende.
+// Nexus es el único agente; analiza cada hecho desde estos criterios.
+export const lenses = [
+ {domain:"EDM",name:"Centinela Estratégico",mandate:"Defiende las prioridades y el apetito de riesgo que el comité aprobó. Una iniciativa aprobada no se detiene sin que el comité lo decida."},
+ {domain:"APO",name:"Navegante de Riesgo",mandate:"Ningún riesgo abierto debe operar por encima del apetito. Cuando la exposición supera el umbral, la actividad expuesta se suspende hasta mitigar."},
+ {domain:"BAI",name:"Arquitecto de Cambio",mandate:"Los cambios llegan a producción con evidencia y dentro de ventana, y una vez estables no se revierten sin causa operativa."},
+ {domain:"DSS",name:"Guardián Operativo",mandate:"Los servicios cumplen su disponibilidad y sus tiempos comprometidos; ante recurrencia, se ataca la causa raíz antes que el síntoma."},
+ {domain:"MEA",name:"Auditor Continuo",mandate:"Un control que no protege no se da por bueno. Sin evidencia efectiva, el objetivo que cubre está descubierto."},
 ]
 export const aiSystems = [
  {name:"Sales Copilot",area:"Comercial",desc:"Asistente generativo para propuestas",risk:"Alto",controls:["APO12","APO13","MEA03"],status:"Pendiente"},

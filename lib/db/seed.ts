@@ -7,11 +7,19 @@ import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
 import { defaultDesignInputs,designFactors as seedDesignFactors } from "../cobit-design"
 import { controls as seedControls,services as seedServices,suppliers as seedSuppliers } from "../operational-master"
-import { agents as seedAgents,aiSystems as seedAiSystems,domains as seedDomains,objectives as seedObjectives } from "../mock-data"
+import { lenses as seedLenses,aiSystems as seedAiSystems,domains as seedDomains,objectives as seedObjectives } from "../mock-data"
 import * as schema from "./schema"
 
 const url=process.env.DATABASE_URL
 if(!url){console.error("Falta DATABASE_URL. Créala en .env.local antes de sembrar.");process.exit(1)}
+
+// Dos perfiles de semilla:
+//   fresh → solo el marco COBIT (dominios, objetivos, agentes, factores de diseño) y un
+//           mandato base. Sin empresa: sin servicios, proveedores, controles, sistemas
+//           de IA, línea base ni historial. Es el estado de una organización nueva.
+//   demo  → además, la organización de ejemplo (Corporación Andina) con línea base
+//           declarada, para demostraciones y desarrollo.
+const PROFILE=(process.env.SEED_PROFILE??"demo")==="fresh"?"fresh":"demo"
 const db=drizzle(neon(url),{schema})
 
 // Referencia a la fila entrante dentro de un ON CONFLICT DO UPDATE
@@ -25,17 +33,18 @@ function raisedAt(label:string){
 }
 
 async function main(){
- await db.insert(schema.domains).values(seedDomains.map(d=>({code:d.code,name:d.name,baseScore:d.score,trend:d.trend,targetMaturity:d.target})))
+ console.log(`Perfil de semilla: ${PROFILE}`)
+ await db.insert(schema.domains).values(seedDomains.map(d=>({code:d.code,name:d.name,baseScore:PROFILE==="demo"?d.score:null,trend:PROFILE==="demo"?d.trend:null,targetMaturity:d.target})))
   .onConflictDoUpdate({target:schema.domains.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),trend:sqlExcluded("trend"),targetMaturity:sqlExcluded("target_maturity")}})
  console.log(`✓ ${seedDomains.length} dominios`)
 
- await db.insert(schema.objectives).values(seedObjectives.map(o=>({code:o.code,name:o.name,domainCode:o.domain,baseScore:o.score,agent:o.agent,history:o.history})))
-  .onConflictDoUpdate({target:schema.objectives.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),agent:sqlExcluded("agent"),history:sqlExcluded("history")}})
+ await db.insert(schema.objectives).values(seedObjectives.map(o=>({code:o.code,name:o.name,domainCode:o.domain,baseScore:PROFILE==="demo"?o.score:null,lens:o.lens,history:PROFILE==="demo"?o.history:[]})))
+  .onConflictDoUpdate({target:schema.objectives.code,set:{name:sqlExcluded("name"),baseScore:sqlExcluded("base_score"),lens:sqlExcluded("lens"),history:sqlExcluded("history")}})
  console.log(`✓ ${seedObjectives.length} objetivos COBIT`)
 
- await db.insert(schema.agents).values(seedAgents.map(a=>({code:a.domain,name:a.name,status:a.status,action:a.action,watched:a.count,activity:a.data})))
-  .onConflictDoUpdate({target:schema.agents.code,set:{name:sqlExcluded("name"),status:sqlExcluded("status"),action:sqlExcluded("action"),watched:sqlExcluded("watched"),activity:sqlExcluded("activity")}})
- console.log(`✓ ${seedAgents.length} agentes`)
+ await db.insert(schema.lenses).values(seedLenses.map(l=>({code:l.domain,name:l.name,mandate:l.mandate})))
+  .onConflictDoUpdate({target:schema.lenses.code,set:{name:sqlExcluded("name"),mandate:sqlExcluded("mandate")}})
+ console.log(`✓ ${seedLenses.length} lentes de Nexus`)
 
  // Negociaciones y avisos NO se siembran: los producen las reglas de gobierno
  // (lib/governance-rules.ts) evaluando la capa operativa.
@@ -52,6 +61,8 @@ async function main(){
  const [existingProfile]=await db.select({id:schema.designProfiles.id}).from(schema.designProfiles).limit(1)
  if(!existingProfile){await db.insert(schema.designProfiles).values({name:"Diseño base",inputs:defaultDesignInputs});console.log("✓ mandato inicial 'Diseño base' aplicado")}
  console.log(`✓ ${seedDesignFactors.length} factores de diseño · ${values.length} valores · ${weights.length} pesos sobre objetivos`)
+
+ if(PROFILE==="fresh"){console.log("· sin sistemas de IA ni maestros operativos: la organización los da de alta desde la mesa de trabajo");return}
 
  // Un sistema "Aprobado" solo es coherente si el comité aceptó sus controles en algún momento
  const assessedAt=new Date(Date.now()-7*24*60*60_000)
