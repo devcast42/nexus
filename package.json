@@ -15,7 +15,8 @@
     "ops:reset": "tsx scripts/reset-operations.ts",
     "db:seed:fresh": "SEED_PROFILE=fresh tsx lib/db/seed.ts",
     "company:wipe": "tsx scripts/wipe-company.ts",
-    "company:fresh": "tsx scripts/wipe-company.ts && SEED_PROFILE=fresh tsx lib/db/seed.ts"
+    "company:fresh": "tsx scripts/wipe-company.ts && SEED_PROFILE=fresh tsx lib/db/seed.ts",
+    "evaluate": "tsx scripts/evaluate.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

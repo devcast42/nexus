@@ -64,7 +64,7 @@ return <div className="flex flex-col gap-5">
 
 const suggested=["¿Por qué APO12 está en rojo?","¿Qué decisiones esperan mi firma?","¿Qué sistemas de IA no tienen controles aceptados?"]
 type ChatMessage = { role:"user"|"assistant"; text:string }
-const greeting:ChatMessage = {role:"assistant",text:"Puedo responder sobre el estado de gobierno registrado: objetivos COBIT, negociaciones entre agentes, decisiones firmadas y el registro de sistemas de IA. ¿Qué quieres revisar?"}
+const greeting:ChatMessage = {role:"assistant",text:"Leo el estado registrado en cada pregunta: la operación (servicios, incidentes, cambios, riesgos, proyectos, seguridad, controles), los objetivos COBIT medidos, las discrepancias que Nexus analizó y las decisiones del comité. ¿Qué quieres revisar?"}
 
 export function CopilotView(){const [messages,setMessages]=useState<ChatMessage[]>([greeting]);const [input,setInput]=useState("");const [streaming,setStreaming]=useState(false);const viewport=useRef<HTMLDivElement>(null);
 useEffect(()=>{viewport.current?.scrollTo({top:viewport.current.scrollHeight})},[messages]);

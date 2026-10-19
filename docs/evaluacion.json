@@ -1,0 +1,323 @@
+{
+ "ejecutado": "2026-10-19T16:23:00.679Z",
+ "configuracion": {
+  "dias": 90,
+  "semilla": 42,
+  "proveedor": "anthropic",
+  "modelo": "claude-haiku-4-5-20251001",
+  "promptVersion": "6",
+  "repeticiones": 5
+ },
+ "e0_estadoInicial": {
+  "objetivosMedidos": 0,
+  "objetivosTotales": 40,
+  "discrepancias": 0,
+  "decisiones": 0,
+  "dominiosConSalud": 0
+ },
+ "e1_demostracion": {
+  "periodoDias": 90,
+  "semilla": 42,
+  "registros": {
+   "servicios": 8,
+   "proveedores": 6,
+   "controles": 16,
+   "incidentes": 71,
+   "cambios": 30,
+   "riesgos": 6,
+   "proyectos": 3,
+   "seguridad": 13,
+   "pruebas": 39,
+   "sla": 24,
+   "evaluaciones": 6
+  },
+  "totalRegistros": 222
+ },
+ "e2_medicion": {
+  "cobertura": {
+   "medidos": 21,
+   "total": 40,
+   "porcentaje": 52.5
+  },
+  "porDominio": [
+   {
+    "code": "EDM",
+    "measured": 1,
+    "total": 5
+   },
+   {
+    "code": "APO",
+    "measured": 6,
+    "total": 14
+   },
+   {
+    "code": "BAI",
+    "measured": 6,
+    "total": 11
+   },
+   {
+    "code": "DSS",
+    "measured": 5,
+    "total": 6
+   },
+   {
+    "code": "MEA",
+    "measured": 3,
+    "total": 4
+   }
+  ],
+  "muestra": {
+   "minima": 1,
+   "mediana": 6,
+   "maxima": 71
+  },
+  "indicadoresSinEvidencia": 0,
+  "objetivos": [
+   {
+    "codigo": "APO06",
+    "salud": 100,
+    "muestra": 3,
+    "metrica": "Gasto contra presupuesto aprobado"
+   },
+   {
+    "codigo": "APO09",
+    "salud": 83,
+    "muestra": 24,
+    "metrica": "Periodos sin incumplimiento de acuerdos de servicio"
+   },
+   {
+    "codigo": "APO10",
+    "salud": 90,
+    "muestra": 6,
+    "metrica": "Cumplimiento promedio de proveedores evaluados"
+   },
+   {
+    "codigo": "APO12",
+    "salud": 50,
+    "muestra": 5,
+    "metrica": "Mitigaciones ejecutadas sobre riesgos abiertos"
+   },
+   {
+    "codigo": "APO13",
+    "salud": 85,
+    "muestra": 13,
+    "metrica": "Eventos sin información comprometida"
+   },
+   {
+    "codigo": "APO14",
+    "salud": 67,
+    "muestra": 3,
+    "metrica": "Efectividad de los controles asociados"
+   },
+   {
+    "codigo": "BAI01",
+    "salud": 67,
+    "muestra": 3,
+    "metrica": "Programas sin alerta de estado"
+   },
+   {
+    "codigo": "BAI04",
+    "salud": 83,
+    "muestra": 24,
+    "metrica": "Mediciones que alcanzan la disponibilidad objetivo"
+   },
+   {
+    "codigo": "BAI06",
+    "salud": 93,
+    "muestra": 28,
+    "metrica": "Cambios desplegados con evidencia de aprobación"
+   },
+   {
+    "codigo": "BAI07",
+    "salud": 82,
+    "muestra": 28,
+    "metrica": "Cambios sin reversión"
+   },
+   {
+    "codigo": "BAI09",
+    "salud": 100,
+    "muestra": 1,
+    "metrica": "Efectividad de los controles asociados"
+   },
+   {
+    "codigo": "BAI11",
+    "salud": 67,
+    "muestra": 3,
+    "metrica": "Proyectos dentro del cronograma"
+   },
+   {
+    "codigo": "DSS02",
+    "salud": 70,
+    "muestra": 66,
+    "metrica": "Incidentes resueltos dentro de SLA"
+   },
+   {
+    "codigo": "DSS03",
+    "salud": 73,
+    "muestra": 71,
+    "metrica": "Incidentes no recurrentes"
+   },
+   {
+    "codigo": "DSS04",
+    "salud": 55,
+    "muestra": 1,
+    "metrica": "Efectividad de los controles asociados"
+   },
+   {
+    "codigo": "DSS05",
+    "salud": 85,
+    "muestra": 13,
+    "metrica": "Eventos de seguridad contenidos"
+   },
+   {
+    "codigo": "DSS06",
+    "salud": 100,
+    "muestra": 1,
+    "metrica": "Efectividad de los controles asociados"
+   },
+   {
+    "codigo": "EDM03",
+    "salud": 100,
+    "muestra": 5,
+    "metrica": "Riesgos dentro del apetito vigente"
+   },
+   {
+    "codigo": "MEA01",
+    "salud": 50,
+    "muestra": 20,
+    "metrica": "Cobertura de medición del sistema de gobierno"
+   },
+   {
+    "codigo": "MEA02",
+    "salud": 82,
+    "muestra": 39,
+    "metrica": "Efectividad del sistema de control interno"
+   },
+   {
+    "codigo": "MEA03",
+    "salud": 55,
+    "muestra": 1,
+    "metrica": "Efectividad de los controles asociados"
+   }
+  ]
+ },
+ "e3_reglas": {
+  "discrepancias": 7,
+  "escaladas": 4,
+  "resueltas": 3,
+  "avisos": 2,
+  "porRegla": [
+   {
+    "regla": "recurring-incidents",
+    "escaladas": 0,
+    "resueltas": 2
+   },
+   {
+    "regla": "change-without-evidence",
+    "escaladas": 2,
+    "resueltas": 0
+   },
+   {
+    "regla": "security-data-exposure",
+    "escaladas": 1,
+    "resueltas": 0
+   },
+   {
+    "regla": "control-ineffective",
+    "escaladas": 1,
+    "resueltas": 0
+   },
+   {
+    "regla": "sla-breach",
+    "escaladas": 0,
+    "resueltas": 1
+   }
+  ],
+  "autoria": {
+   "modelo": 7,
+   "plantilla": 0
+  },
+  "latenciaPorDeliberacion": {
+   "mediana": 7193,
+   "minima": 0,
+   "maxima": 8012,
+   "corridas": 4
+  }
+ },
+ "e4_cicloCerrado": {
+  "cambio": "CHG-0031",
+  "t0_trasDesplegarSinEvidencia": {
+   "score": 90,
+   "sample": 29,
+   "metric": "Cambios desplegados con evidencia de aprobación"
+  },
+  "t1_trasLaFirmaDelComite": {
+   "score": 90,
+   "sample": 29,
+   "metric": "Cambios desplegados con evidencia de aprobación",
+   "operacionesEjecutadasPorLaFirma": 0,
+   "rama": "Exigir evidencia retroactiva al Equipo"
+  },
+  "t2_trasAdjuntarEvidencia": {
+   "score": 93,
+   "sample": 29,
+   "metric": "Cambios desplegados con evidencia de aprobación"
+  },
+  "laFirmaCambioLaMedicion": false,
+  "elHechoCambioLaMedicion": true
+ },
+ "e5_estabilidad": {
+  "discrepancia": "change-without-evidence:CHG-0021",
+  "repeticiones": 5,
+  "invariantes": {
+   "objetivo": "BAI06",
+   "principio": "BAI06",
+   "resultado": "escalated",
+   "lentes": [
+    "MEA",
+    "BAI"
+   ],
+   "operacionesAprobar": [],
+   "operacionesRechazar": []
+  },
+  "deliberadasConModelo": 5,
+  "sustituidasPorPostValidacion": 0,
+  "latenciaMs": {
+   "mediana": 6505,
+   "minima": 5369,
+   "maxima": 7040
+  },
+  "similitudLexicaEntrePares": {
+   "mediana": 19,
+   "minima": 11.8,
+   "maxima": 26.9
+  },
+  "textos": [
+   {
+    "authoredBy": "model",
+    "ms": 6505,
+    "initiator": "Desde MEA: el cambio CHG-0021 fue desplegado el 27-set en Red y conectividad (criticidad Crítico) sin evidencia de aprobación registrada. Un control de cambios sin respaldo documental no cumple su propósito de protección. La ausencia de autorización formal deja el objetivo descubierto independientemente de que operativamente sea estable. BAI06 exige trazabilidad completa; sin ella, el riesgo de cambios no controlados persiste."
+   },
+   {
+    "authoredBy": "model",
+    "ms": 5369,
+    "initiator": "MEA sostiene: CHG-0021 carece de evidencia registrada de aprobación. Sin control efectivo, el objetivo de BAI06 está descubierto. Un cambio crítico desplegado el 27-set. sin traza completa vulnera la cadena de custodia. Revertir CHG-0021 cierra esta exposición y obliga a Nortia Systems a cumplir antes de reintroducir."
+   },
+   {
+    "authoredBy": "model",
+    "ms": 6674,
+    "initiator": "MEA sostiene que sin evidencia de aprobación registrada, el control de cambios BAI06 no protege el objetivo. CHG-0021 se desplegó el 27-set. dentro de ventana, pero la aprobación no consta en el registro. Un control que no deja rastro de decisión no cumple su función de gobernar cambios en infraestructura crítica. La estabilidad operativa (0 incidentes) no valida la ausencia de gobernanza previa."
+   },
+   {
+    "authoredBy": "model",
+    "ms": 5983,
+    "initiator": "MEA sostiene que CHG-0021 carece de evidencia de aprobación registrada en el sistema. Sin documentación efectiva del control de cambios, el objetivo de BAI06 permanece descubierto y no puede darse por válido, independientemente de estabilidad operativa posterior. La falta de evidencia anula la cadena de control, exponiendo la organización a cambios sin trazabilidad verificable."
+   },
+   {
+    "authoredBy": "model",
+    "ms": 7040,
+    "initiator": "MEA sostiene que CHG-0021 carece de evidencia de aprobación registrada. Sin documentación que acredite la autorización previa al despliegue del 27-set., el control BAI06 no protege la criticidad Crítico de Red y conectividad. La ausencia de evidencia efectiva deja el objetivo de gestión de cambios descubierto, independientemente de que no haya incidentes posteriores. La reversión es la única forma de restaurar el control hasta que la evidencia se recopile y se adjunte formalmente."
+   }
+  ]
+ }
+}

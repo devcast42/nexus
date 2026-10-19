@@ -3,30 +3,14 @@ import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { getDb } from "@/lib/db"
 import * as schema from "@/lib/db/schema"
+import { signDecision } from "@/lib/decisions"
 import { syncGovernanceSignals } from "@/lib/governance-rules"
 import { applyOperation } from "@/lib/operations"
 import { COMMITTEE_SIGNER } from "@/lib/org"
 import type { Verdict } from "@/lib/types"
 
 export async function decideNegotiation(negotiationId:number,verdict:Verdict){
- if(!Number.isInteger(negotiationId))throw new Error("Identificador de negociación inválido")
- if(verdict!=="approved"&&verdict!=="rejected")throw new Error("Veredicto inválido")
- const db=getDb()
- const [negotiation]=await db.select().from(schema.negotiations).where(eq(schema.negotiations.id,negotiationId))
- if(!negotiation)throw new Error(`La negociación ${negotiationId} no existe`)
- if(negotiation.outcome!=="escalated")throw new Error("Los agentes resolvieron esta discrepancia dentro del mandato: no hay nada que firmar")
- const label=verdict==="approved"?negotiation.approveLabel:negotiation.rejectLabel
- const impact=verdict==="approved"?negotiation.approveImpact:negotiation.rejectImpact
- const delta=verdict==="approved"?negotiation.approveDelta:negotiation.rejectDelta
- if(label===null||impact===null)throw new Error("La negociación no define esta rama de decisión")
- // La firma ejecuta la rama en la capa operativa: el efecto es lo que la operación
- // cambia, no un delta. Con puntajes medidos, un delta fijo no significaría nada.
- const branchOps=verdict==="approved"?negotiation.approveOps:negotiation.rejectOps
- for(const op of branchOps)await applyOperation(op.type,op.payload)
- await db.insert(schema.decisions)
-  .values({negotiationId,objectiveCode:negotiation.objectiveCode,domainCode:negotiation.domainCode,lens:negotiation.initiatorLens,verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER})
-  .onConflictDoUpdate({target:schema.decisions.negotiationId,set:{verdict,label,impact,delta:delta??0,decidedBy:COMMITTEE_SIGNER,decidedAt:new Date()}})
- await syncGovernanceSignals()
+ await signDecision(negotiationId,verdict)
  revalidatePath("/")
 }
 
